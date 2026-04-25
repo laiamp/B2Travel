@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 import base64
 import json
 import os
@@ -8,11 +7,6 @@ import tempfile
 from fastapi import APIRouter, HTTPException
 from google import genai
 from pydantic import BaseModel, Field
-=======
-import json
-
-from fastapi import APIRouter, HTTPException, Request
->>>>>>> 70d6e8b (???)
 from pymongo.errors import PyMongoError
 
 from app.config import settings
@@ -30,7 +24,6 @@ def _get_gemini_client() -> genai.Client:
     return _gemini_client
 
 
-<<<<<<< HEAD
 class RecommendationRequest(BaseModel):
     images_base64: list[str] = Field(
         ...,
@@ -126,68 +119,6 @@ async def create_recommendation_event(request: RecommendationRequest) -> dict:
     except PyMongoError as exc:
         raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}")
 
-=======
-async def _extract_images_base64(request: Request) -> list[str]:
-    """Accept JSON object or stringified JSON body with images_base64 field."""
-    try:
-        payload = await request.json()
-    except Exception:
-        payload = (await request.body()).decode("utf-8", errors="ignore")
-
-    if isinstance(payload, str):
-        candidate = payload.strip()
-        if not candidate:
-            raise HTTPException(status_code=400, detail="Request body cannot be empty")
-        try:
-            payload = json.loads(candidate)
-        except json.JSONDecodeError as exc:
-            raise HTTPException(
-                status_code=400,
-                detail='Invalid JSON body. Use valid JSON, e.g. {"images_base64": ["..."]}',
-            ) from exc
-
-    if isinstance(payload, list):
-        images = payload
-    elif isinstance(payload, dict):
-        images = payload.get("images_base64")
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Body must be either a JSON object with images_base64 or a JSON array of images",
-        )
-
-    if not isinstance(images, list) or not images:
-        raise HTTPException(status_code=400, detail="images_base64 must be a non-empty list")
-
-    normalized_images = [str(img).strip() for img in images if str(img).strip()]
-    if not normalized_images:
-        raise HTTPException(status_code=400, detail="images_base64 list cannot be empty")
-
-    return normalized_images
-
-
-@router.post("/")
-async def create_recommendation_event(request: Request) -> dict:
-    images_base64 = await _extract_images_base64(request)
-
-    # Add here the Gemma recommendation logic using the input images.
-    # images_base64 is already validated and available for inference.
-    _ = images_base64
-    cities = ["Barcelona", "Paris", "New York", "Tokyo", "Sydney"]
-
-    event = {
-        "type": "recommendation",
-        "destination": "agent",
-        "recommendations": cities,
-        "received": False,
-    }
-
-    try:
-        result = await events_col.insert_one(event)
-    except PyMongoError as exc:
-        raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}")
-
->>>>>>> 70d6e8b (???)
     return {
         "event_id": str(result.inserted_id),
         "type": event["type"],
