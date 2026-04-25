@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Travel Saver</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-brand">
+      <span class="header-icon" style="font-size:22px;line-height:1">✈️</span>
+      <span class="header-title">Travel Saver</span>
+    </div>
+    <span class="item-count" id="itemCount">0 saved</span>
+  </header>
+
+  <!-- Save current page bar -->
+  <div class="save-bar">
+    <button id="btnSavePage" class="btn-save-page">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" />
+        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+      </svg>
+      Save This Page
+    </button>
+    <button id="btnSaveSong" class="btn-save-song" style="display:none">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </svg>
+      Save This Song
+    </button>
+  </div>
+
+  <!-- Tabs -->
+  <nav class="tabs">
+    <button class="tab active" data-tab="pages" id="tabPages">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      </svg>
+      Pages
+    </button>
+    <button class="tab" data-tab="texts" id="tabTexts">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
+        <polyline points="10 9 9 9 8 9" />
+      </svg>
+      Texts
+    </button>
+    <button class="tab" data-tab="photos" id="tabPhotos">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+      Photos
+    </button>
+    <button class="tab" data-tab="songs" id="tabSongs">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M9 18V5l12-2v13" />
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="18" cy="16" r="3" />
+      </svg>
+      Songs
+    </button>
+  </nav>
+
+  <!-- Tab content: Pages -->
+  <div class="tab-content active" id="panelPages">
+    <div class="items-list" id="pagesList">
+      <div class="empty-state" id="pagesEmpty">
+        <div class="empty-icon">🗺️</div>
+        <p>No pages saved yet.<br />Browse a website and click <strong>Save This Page</strong>.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab content: Texts -->
+  <div class="tab-content" id="panelTexts">
+    <div class="input-group">
+      <textarea id="textInput" placeholder="Type a travel note, address, tip…" rows="3"></textarea>
+      <button id="btnSaveText" class="btn-action">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+          <line x1="12" y1="5" x2="12" y2="19" />
+          <line x1="5" y1="12" x2="19" y2="12" />
+        </svg>
+        Save Note
+      </button>
+    </div>
+    <div class="items-list" id="textsList">
+      <div class="empty-state" id="textsEmpty">
+        <div class="empty-icon">📝</div>
+        <p>No notes yet.<br />Select text on any page and right-click, or type above.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab content: Photos -->
+  <div class="tab-content" id="panelPhotos">
+    <label class="photo-upload-area" id="photoUploadArea" for="photoInput">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+      <span>Click to upload photos</span>
+      <input type="file" id="photoInput" accept="image/*" multiple hidden />
+    </label>
+    <div class="photo-grid" id="photoGrid">
+      <div class="empty-state" id="photosEmpty">
+        <div class="empty-icon">📸</div>
+        <p>No photos yet.<br />Upload images or right-click images on websites.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Tab content: Songs -->
+  <div class="tab-content" id="panelSongs">
+    <div class="items-list" id="songsList">
+      <div class="empty-state" id="songsEmpty">
+        <div class="empty-icon">🎵</div>
+        <p>No songs saved yet.<br />Open a YouTube video and click <strong>Save This Song</strong>,<br />or right-click
+          a YouTube link.</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+
+</html>
