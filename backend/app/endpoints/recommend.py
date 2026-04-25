@@ -68,7 +68,7 @@ Return valid JSON only (no markdown, no explanation) in this format:
 
 _DEFAULT_RECOMMENDATION = (
         "Your images suggest a vibrant, exploratory vibe with a mix of culture and scenery. "
-        "Great city matches are Barcelona, Tokyo, Lisbon, Mexico City, and Cape Town."
+        "Great city matches are Tokyo, Lisbon, Mexico City, and Cape Town."
 )
 
 

@@ -13,6 +13,12 @@ from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/flights")
 
+DEFAULT_ORIGIN_IATA = "BCN"
+DEFAULT_CURRENCY = "EUR"
+DEFAULT_MARKET = "ES"
+DEFAULT_LOCALE = "es-ES"
+DEFAULT_CABIN_CLASS = "CABIN_CLASS_ECONOMY"
+
 # Classes
 @dataclass
 class SkyscannerInfo:
@@ -25,7 +31,7 @@ class SkyscannerInfo:
     market: str
     locale: str
     adults: int = 1
-    cabin_class: str = "CABIN_CLASS_ECONOMY"
+    cabin_class: str = DEFAULT_CABIN_CLASS
 
 class FlightSearcher:
     def __init__(self):
@@ -92,28 +98,18 @@ class FlightSearcher:
 
 # Models
 class FlightSearchRequest(BaseModel):
-    origin_iata: str = Field("BCN", description="Origin airport IATA code (e.g., BCN)")
     destination_iata: str = Field(..., description="Destination airport IATA code (e.g., SIN)")
     year: int = Field(..., ge=2024, le=2030, description="Departure year")
     month: int = Field(..., ge=1, le=12, description="Departure month (1-12)")
     day: int = Field(..., ge=1, le=31, description="Departure day")
-    currency: str = Field("EUR", description="Currency code (EUR, GBP, USD, etc.)")
-    market: str = Field("ES", description="Market code (e.g., ES for Spain, UK for United Kingdom)")
-    locale: str = Field("es-ES", description="Locale (e.g., es-ES, en-GB)")
     adults: int = Field(1, ge=1, le=9, description="Number of adult passengers")
-    cabin_class: str = Field("CABIN_CLASS_ECONOMY", description="Cabin class")
 
 class BatchFlightSearchRequest(BaseModel):
-    origin_iata: str = Field("BCN", description="Origin airport IATA code")
     destinations_iata: List[str] = Field(..., description="List of destination IATA codes (e.g., ['SIN', 'LHR', 'JFK'])")
     year: int = Field(..., ge=2024, le=2030)
     month: int = Field(..., ge=1, le=12)
     day: int = Field(..., ge=1, le=31)
-    currency: str = Field("EUR")
-    market: str = Field("ES")
-    locale: str = Field("es-ES")
     adults: int = Field(1, ge=1, le=9)
-    cabin_class: str = Field("CABIN_CLASS_ECONOMY")
 
 
 # Endpoints
@@ -124,16 +120,16 @@ def search_flights(request: FlightSearchRequest):
     """
     searcher = FlightSearcher()
     info = SkyscannerInfo(
-        origin_iata=request.origin_iata,
+        origin_iata=DEFAULT_ORIGIN_IATA,
         destination_iata=request.destination_iata,
         year=request.year,
         month=request.month,
         day=request.day,
-        currency=request.currency,
-        market=request.market,
-        locale=request.locale,
+        currency=DEFAULT_CURRENCY,
+        market=DEFAULT_MARKET,
+        locale=DEFAULT_LOCALE,
         adults=request.adults,
-        cabin_class=request.cabin_class
+        cabin_class=DEFAULT_CABIN_CLASS
     )
     try:
         flights = searcher.get_all_flight_options(info)
@@ -162,16 +158,16 @@ def search_flights_batch(request: BatchFlightSearchRequest):
         try:
             # Create a SkyscannerInfo for this destination
             info = SkyscannerInfo(
-                origin_iata=request.origin_iata,
+                origin_iata=DEFAULT_ORIGIN_IATA,
                 destination_iata=dest,
                 year=request.year,
                 month=request.month,
                 day=request.day,
-                currency=request.currency,
-                market=request.market,
-                locale=request.locale,
+                currency=DEFAULT_CURRENCY,
+                market=DEFAULT_MARKET,
+                locale=DEFAULT_LOCALE,
                 adults=request.adults,
-                cabin_class=request.cabin_class
+                cabin_class=DEFAULT_CABIN_CLASS
             )
             # Get all flight options (already sorted by price)
             all_flights = searcher.get_all_flight_options(info)
