@@ -24,6 +24,14 @@ def compute_projections(embeddings: list[list[float]], n_components: int = 3) ->
     embeddings_np = np.array(embeddings)
     
     projections = _reducer.fit_transform(embeddings_np)
+
+     # Center around (0, 0, 0) — useful for VR where the viewer is at the origin
+    centroid = projections.mean(axis=0)
+    projections = projections - centroid
+
+    # Scale to spread clusters further apart (tune SCALE_FACTOR as needed)
+    SCALE_FACTOR = 5.0
+    projections = projections * SCALE_FACTOR
     
     return [tuple(float(v) for v in p) for p in projections]
 
