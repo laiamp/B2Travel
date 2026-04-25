@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import close_database
-from app.endpoints import coordinates, health, ingest, retrieve
+from app.endpoints import coordinates, delete, health, ingest, retrieve
 
 
 @asynccontextmanager
@@ -33,6 +33,7 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(ingest.router)
+app.include_router(delete.router)
 app.include_router(retrieve.router)
 app.include_router(coordinates.router)
 

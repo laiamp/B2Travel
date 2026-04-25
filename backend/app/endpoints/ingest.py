@@ -106,7 +106,6 @@ async def ingest_text(text: str = Form(...)) -> dict:
         "size_bytes": len(text.encode()),
         "model": _MODEL_NAME,
         "embedding": embedding,
-				"projection": None
     })
 
     preview = text[:50] + ("..." if len(text) > 50 else "")

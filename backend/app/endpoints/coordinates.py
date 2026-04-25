@@ -14,9 +14,9 @@ async def get_coordinates():
     and returns all documents with their computed 3D projections.
     """
     try:
-        # Fetch all records that have an embedding
+        # Fetch only image records that have an embedding
         cursor = embeddings_col.find(
-            {"embedding": {"$exists": True}},
+            {"embedding": {"$exists": True}, "content_type": {"$regex": "^image/"}},
             {"embedding": 1, "filename": 1, "content_type": 1, "text": 1, "model": 1}
         )
         documents = await cursor.to_list(length=100000)
