@@ -46,7 +46,7 @@ async def _check_health_async(check_type: str) -> str:
 async def _get_flights_async(parameters: dict) -> str:
     print(parameters)
     async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.post("http://localhost:8000/flights/search", json=parameters)
+        response = await client.post("http://localhost:8000/flights/search/batch", json=parameters)
         response.raise_for_status()
         return str(response.json())
 
