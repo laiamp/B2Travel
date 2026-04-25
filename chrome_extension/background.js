@@ -5,28 +5,28 @@ chrome.runtime.onInstalled.addListener(() => {
     // Context menu for selected text
     chrome.contextMenus.create({
         id: "save-text",
-        title: "✈️ Save text to Travel Board",
+        title: "💬 Save quote to B2Travel",
         contexts: ["selection"]
     });
 
     // Context menu for images
     chrome.contextMenus.create({
         id: "save-image",
-        title: "✈️ Save image to Travel Board",
+        title: "🏞️️ Save image to B2Travel",
         contexts: ["image"]
     });
 
     // Context menu for links/page
     chrome.contextMenus.create({
         id: "save-page",
-        title: "✈️ Save page to Travel Board",
+        title: "🌐️ Save page to B2Travel",
         contexts: ["page", "link"]
     });
 
     // Context menu for YouTube links
     chrome.contextMenus.create({
         id: "save-song",
-        title: "🎵 Save as song to Travel Board",
+        title: "🎵 Save as song to B2Travel",
         contexts: ["link"]
     });
 });

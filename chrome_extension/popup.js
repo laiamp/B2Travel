@@ -26,6 +26,10 @@ const pagesEmpty = document.getElementById("pagesEmpty");
 const textsEmpty = document.getElementById("textsEmpty");
 const photosEmpty = document.getElementById("photosEmpty");
 const songsEmpty = document.getElementById("songsEmpty");
+const globalLoader = document.getElementById("globalLoader");
+
+function showLoader() { globalLoader.style.display = "flex"; }
+function hideLoader() { globalLoader.style.display = "none"; }
 
 // ---- Init ----
 document.addEventListener("DOMContentLoaded", async () => {
@@ -98,6 +102,21 @@ async function postImage(fileOrBlob, filename) {
     const res = await fetch(`${API_BASE}/ingest/image`, { method: "POST", body: form });
     if (!res.ok) throw new Error(`Ingest image failed: ${res.status}`);
     return res.json(); // { id, filename, embedding_dim, collection }
+}
+
+async function deleteApiItem(collection, id) {
+    const res = await fetch(`${API_BASE}/delete/${collection}/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+    });
+
+    if (!res.ok) {
+        let detail = `Delete ${collection} failed: ${res.status}`;
+        try {
+            const body = await res.json();
+            if (body?.detail) detail = body.detail;
+        } catch { }
+        throw new Error(detail);
+    }
 }
 
 // ============================================================
@@ -209,6 +228,7 @@ function setupSaveHandlers() {
         if (!content) { showToast("Type something first!"); return; }
         textInput.disabled = true;
         btnSaveText.disabled = true;
+        showLoader();
         try {
             const saved = await postText(content);
             apiTexts.unshift({
@@ -223,6 +243,7 @@ function setupSaveHandlers() {
             console.error(e);
             showToast("❌ Failed to save note (backend down?)");
         } finally {
+            hideLoader();
             textInput.disabled = false;
             btnSaveText.disabled = false;
         }
@@ -238,6 +259,8 @@ function setupSaveHandlers() {
 // ============================================================
 function setupPhotoUpload() {
     async function handleFiles(files) {
+        showLoader();
+
         for (const file of files) {
             try {
                 const saved = await postImage(file, file.name);
@@ -255,6 +278,9 @@ function setupPhotoUpload() {
                 showToast("❌ Failed to upload image (backend down?)");
             }
         }
+
+        hideLoader();
+
         renderPhotos();
         updateCount();
         showToast(`📸 ${files.length} photo${files.length > 1 ? "s" : ""} saved!`);
@@ -339,11 +365,18 @@ function renderTexts() {
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
       </button>`;
-        // Note: no delete API endpoint yet — removing from local view only
-        card.querySelector(".btn-delete").addEventListener("click", () => {
-            apiTexts = apiTexts.filter(t => t.id !== item.id);
-            renderTexts();
-            updateCount();
+        card.querySelector(".btn-delete").addEventListener("click", async e => {
+            e.preventDefault();
+            try {
+                await deleteApiItem("texts", item.id);
+                apiTexts = apiTexts.filter(t => t.id !== item.id);
+                renderTexts();
+                updateCount();
+                showToast("🗑️ Text deleted");
+            } catch (err) {
+                console.error("[Travel Saver] Failed to delete text:", err);
+                showToast("❌ Failed to delete text");
+            }
         });
         textsList.appendChild(card);
     });
@@ -366,11 +399,18 @@ function renderPhotos() {
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
       </button>`;
-        // No delete API yet — remove from view only
-        wrap.querySelector(".btn-delete").addEventListener("click", () => {
-            apiPhotos = apiPhotos.filter(p => p.id !== item.id);
-            renderPhotos();
-            updateCount();
+        wrap.querySelector(".btn-delete").addEventListener("click", async e => {
+            e.preventDefault();
+            try {
+                await deleteApiItem("images", item.id);
+                apiPhotos = apiPhotos.filter(p => p.id !== item.id);
+                renderPhotos();
+                updateCount();
+                showToast("🗑️ Photo deleted");
+            } catch (err) {
+                console.error("[Travel Saver] Failed to delete photo:", err);
+                showToast("❌ Failed to delete photo");
+            }
         });
         wrap.querySelector(".photo-thumb").addEventListener("click", () => {
             if (!src) return;
