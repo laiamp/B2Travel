@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Skyscanner VR Gallery - Smart Guide Optimized</title>
+  <title>Skyscanner VR Gallery - Click to Select</title>
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
   <style>
@@ -14,7 +14,7 @@
   <a-scene background="color: #05111f" cursor="rayOrigin: mouse" raycaster="objects: .interactive">
     <a-camera position="0 0 0" look-controls="pointerLockEnabled: false">
       
-      <a-entity cursor="fuse: true; fuseTimeout: 1000" position="0 0 -1"
+      <a-entity cursor="fuse: false" position="0 0 -1"
                 geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.02"
                 material="color: #0770E3; shader: flat"
                 animation__mouseenter="property: scale; to: 1.5 1.5 1.5; startEvents: mouseenter; dur: 200"
@@ -175,14 +175,9 @@
           if (arrayIndex > -1) selectedPhotos.splice(arrayIndex, 1);
           printToTerminal("DESELECTED", index);
         }
-
-        // --- VR FUSE FIX: Force Raycaster Reset ---
-        // Give the raycaster 150ms to clear the object from its intersection cache 
-        // and register it again. This allows consecutive selection/deselection.
-        wrapper.classList.remove('interactive');
-        setTimeout(() => {
-          wrapper.classList.add('interactive');
-        }, 150);
+        
+        // NOTE: The previous VR fuse hack (removing/adding the interactive class) 
+        // was deleted here because it is entirely unnecessary for physical clicks.
       });
 
       wrapper.appendChild(frame);
