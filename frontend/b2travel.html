@@ -160,19 +160,19 @@
                 Math.max(...zs) - Math.min(...zs),
                 1  // avoid division by zero
             );
-            const scale = (UMAP_SCALE * 2) / maxRange;  // maps to ~[-UMAP_SCALE, +UMAP_SCALE]
-            const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
-            const cy = (Math.max(...ys) + Math.min(...ys)) / 2;
-            const cz = (Math.max(...zs) + Math.min(...zs)) / 2;
+            window.globalScale = (UMAP_SCALE * 2) / maxRange;  // maps to ~[-UMAP_SCALE, +UMAP_SCALE]
+            window.globalCx = (Math.max(...xs) + Math.min(...xs)) / 2;
+            window.globalCy = (Math.max(...ys) + Math.min(...ys)) / 2;
+            window.globalCz = (Math.max(...zs) + Math.min(...zs)) / 2;
 
             // 4. Build A-Frame entities
             setProgress(80, `Building ${coordData.length} photo entities…`);
             coordData.forEach((doc, index) => {
                 const [ux, uy, uz] = doc.projection;
                 const pos = {
-                    x: (ux - cx) * scale,
-                    y: (uy - cy) * scale,
-                    z: (uz - cz) * scale,
+                    x: (ux - window.globalCx) * window.globalScale,
+                    y: (uy - window.globalCy) * window.globalScale,
+                    z: (uz - window.globalCz) * window.globalScale,
                 };
 
                 // Depth from origin → opacity (closer = more opaque)
@@ -186,6 +186,9 @@
 
             setProgress(100, 'Ready!');
             setTimeout(() => { loadingOverlay.style.display = 'none'; }, 700);
+            
+            // Start listening to the AI Agent
+            pollEvents();
 
         } catch (err) {
             console.error('Gallery load failed:', err);
@@ -328,6 +331,32 @@
             else if (angle >= 247.5 && angle < 292.5) arrows.bottom.setAttribute('visible', 'true');
             else if (angle >= 292.5 && angle < 337.5) arrows.bottomRight.setAttribute('visible', 'true');
         }, 100);
+    }
+
+    // ── AI Agent Event Polling ────────────────────────────────────────────────
+    async function pollEvents() {
+        try {
+            const res = await fetch(`${BACKEND}/events/front`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.event && data.event.position) {
+                    const [ux, uy, uz] = data.event.position;
+                    const pos = {
+                        x: (ux - window.globalCx) * window.globalScale,
+                        y: (uy - window.globalCy) * window.globalScale,
+                        z: (uz - window.globalCz) * window.globalScale,
+                    };
+                    console.log(`Agent said: ${data.event.vibe}. Guiding to:`, pos);
+                    guideToPoint(pos);
+                    showError(`Agent guiding you to: ${data.event.vibe}`); // Reusing errorBanner as a notification popup
+                }
+            }
+        } catch (e) {
+            console.error("Polling error:", e);
+        }
+        setTimeout(pollEvents, 2000);
     }
 
     // ── Boot ──────────────────────────────────────────────────────────────────
