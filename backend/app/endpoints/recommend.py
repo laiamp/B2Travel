@@ -67,10 +67,9 @@ Return valid JSON only (no markdown, no explanation) in this format:
 """
 
 _DEFAULT_RECOMMENDATION = (
-        "Your images suggest a vibrant, exploratory vibe with a mix of culture and scenery. "
-        "Great city matches are Tokyo, Lisbon, Mexico City, and Cape Town."
+    "Your images suggest a lively, sun-soaked vibe with a focus on beach life, nightlife, and social energy. "
+    "Great city matches are Ibiza, Miami, Mykonos, Rio de Janeiro, and Tulum."
 )
-
 
 class RecommendationService:
     def __init__(self, client: genai.Client):
