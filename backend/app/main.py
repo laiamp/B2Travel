@@ -24,8 +24,12 @@ app.add_middleware(
         "http://127.0.0.1:3000",
         "http://localhost:5173",
         "http://127.0.0.1:5173",
+        # CodePen origins (pen previews run under cdpn.io)
+        "https://cdpn.io",
+        "https://codepen.io",
+        "https://s.codepen.io",
     ],
-    allow_origin_regex=r"chrome-extension://.*",
+    allow_origin_regex=r"(chrome-extension://.*|https://.*\.codepen\.io|https://.*\.cdpn\.io)",
     allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],

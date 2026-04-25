@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <title>B2Travel – Your Memory Universe</title>
+    <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+    <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
+    <style>
+        body { overflow: hidden; margin: 0; background-color: #05111f; font-family: sans-serif; }
+
+        /* Loading overlay */
+        #loading-overlay {
+            position: fixed; inset: 0; background: #05111f;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            z-index: 9999; color: #00B9F1;
+        }
+        #loading-overlay h2 { font-size: 1.4rem; margin-bottom: 1rem; letter-spacing: 2px; }
+        #loading-bar-wrap { width: 260px; height: 6px; background: #0a2035; border-radius: 3px; overflow: hidden; }
+        #loading-bar { height: 100%; width: 0%; background: linear-gradient(90deg,#0770E3,#00B9F1); border-radius: 3px; transition: width .3s; }
+        #loading-status { margin-top: .75rem; font-size: .8rem; opacity: .7; }
+
+        /* Error banner */
+        #error-banner {
+            display: none; position: fixed; top: 12px; left: 50%; transform: translateX(-50%);
+            background: #c0392b; color: #fff; padding: .55rem 1.2rem; border-radius: 8px;
+            font-size: .85rem; z-index: 9999;
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- Loading overlay -->
+<div id="loading-overlay">
+    <h2>✈️ B2Travel – Loading your memories…</h2>
+    <div id="loading-bar-wrap"><div id="loading-bar"></div></div>
+    <div id="loading-status">Connecting to backend…</div>
+</div>
+
+<div id="error-banner"></div>
+
+<a-scene background="color: #05111f" cursor="rayOrigin: mouse" raycaster="objects: .interactive">
+    <a-camera position="0 0 0" look-controls="pointerLockEnabled: false">
+
+        <a-entity cursor="fuse: true; fuseTimeout: 1500" position="0 0 -1"
+            geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.02"
+            material="color: #0770E3; shader: flat"
+            animation__mouseenter="property: scale; to: 1.5 1.5 1.5; startEvents: mouseenter; dur: 200"
+            animation__mouseleave="property: scale; to: 1 1 1; startEvents: mouseleave; dur: 200"
+            animation__color_enter="property: material.color; type: color; to: #00B9F1; startEvents: mouseenter; dur: 200"
+            animation__color_leave="property: material.color; type: color; to: #0770E3; startEvents: mouseleave; dur: 200">
+        </a-entity>
+
+        <!-- 8-direction guide arrows -->
+        <a-entity id="arrow-top"          geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" position="0 0.35 -1"           visible="false" animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+        <a-entity id="arrow-top-right"    geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" position="0.32 0.25 -1"  rotation="0 0 -45"  visible="false" animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+        <a-entity id="arrow-right"        geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" position="0.45 0 -1"      rotation="0 0 -90"  visible="false" animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+        <a-entity id="arrow-bottom-right" geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" position="0.32 -0.18 -1" rotation="0 0 -135" visible="false" animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+        <a-entity id="arrow-bottom"       geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" position="0 -0.25 -1"     rotation="0 0 180"  visible="false" animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+        <a-entity id="arrow-bottom-left"  geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" position="-0.32 -0.18 -1" rotation="0 0 135" visible="false" animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+        <a-entity id="arrow-left"         geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" position="-0.45 0 -1"     rotation="0 0 90"   visible="false" animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+        <a-entity id="arrow-top-left"     geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" position="-0.32 0.25 -1"  rotation="0 0 45"   visible="false" animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+    </a-camera>
+
+    <a-entity id="gallery-container"></a-entity>
+</a-scene>
+
+<script>
+    // ── CONFIG ──────────────────────────────────────────────────────────────────
+    // Change this if your backend runs on a different host/port
+    const BACKEND = 'https://platter-wackiness-swiftly.ngrok-free.dev';
+
+    // Scale factor: UMAP coordinates are usually in [-5, 5].
+    // We multiply to spread photos across the VR space.
+    const UMAP_SCALE = 4.0;
+
+    // ── UI helpers ──────────────────────────────────────────────────────────────
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingBar     = document.getElementById('loading-bar');
+    const loadingStatus  = document.getElementById('loading-status');
+    const errorBanner    = document.getElementById('error-banner');
+
+    function setProgress(pct, msg) {
+        loadingBar.style.width = pct + '%';
+        loadingStatus.textContent = msg;
+    }
+    function showError(msg) {
+        errorBanner.textContent = '⚠ ' + msg;
+        errorBanner.style.display = 'block';
+        setTimeout(() => { errorBanner.style.display = 'none'; }, 6000);
+    }
+
+    // ── Scene setup ──────────────────────────────────────────────────────────────
+    const sceneEl   = document.querySelector('a-scene');
+    const assetsEl  = document.createElement('a-assets');
+    assetsEl.setAttribute('timeout', '30000');
+    sceneEl.prepend(assetsEl);
+
+    const galleryEl = document.getElementById('gallery-container');
+    const selectedPhotos = [];
+
+    // ── Starfield ──────────────────────────────────────────────────────────────
+    function createStarrySkybox() {
+        const canvas = document.createElement('canvas');
+        canvas.width = 2048; canvas.height = 1024;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#05111f'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        for (let i = 0; i < 400; i++) {
+            ctx.beginPath();
+            ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, Math.random() * 1.5 + 0.5, 0, Math.PI * 2);
+            ctx.fillStyle = Math.random() > 0.8 ? '#00B9F1' : '#ffffff';
+            ctx.globalAlpha = 0.3 + Math.random() * 0.7; ctx.fill();
+        }
+        const sky = document.createElement('a-sky');
+        sky.setAttribute('src', canvas.toDataURL());
+        sceneEl.appendChild(sky);
+    }
+    createStarrySkybox();
+
+    // ── Main data fetch ───────────────────────────────────────────────────────
+    async function loadGallery() {
+        try {
+            // 1. Fetch 3D UMAP projections
+            setProgress(10, 'Fetching 3D coordinates…');
+            const coordRes = await fetch(`${BACKEND}/coordinates/`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            const coordData = await coordRes.json();  // [{id, projection:[x,y,z], filename, …}]
+
+            if (coordData.length === 0) {
+                setProgress(100, 'No images found in database.');
+                setTimeout(() => { loadingOverlay.style.display = 'none'; }, 1500);
+                return;
+            }
+
+            // 2. Fetch images (base64)
+            setProgress(40, 'Fetching images…');
+            const imgRes = await fetch(`${BACKEND}/retrieve/images`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            const imgData = await imgRes.json();  // [{id, image_base64, content_type, …}]
+
+            // Build a map: id → base64 data-URI
+            setProgress(65, 'Preparing textures…');
+            const imgMap = {};
+            for (const item of imgData) {
+                if (item.image_base64) {
+                    imgMap[item.id] = `data:${item.content_type};base64,${item.image_base64}`;
+                }
+            }
+
+            // 3. Compute bounding box of UMAP projections to normalise scale
+            const xs = coordData.map(d => d.projection[0]);
+            const ys = coordData.map(d => d.projection[1]);
+            const zs = coordData.map(d => d.projection[2]);
+            const maxRange = Math.max(
+                Math.max(...xs) - Math.min(...xs),
+                Math.max(...ys) - Math.min(...ys),
+                Math.max(...zs) - Math.min(...zs),
+                1  // avoid division by zero
+            );
+            const scale = (UMAP_SCALE * 2) / maxRange;  // maps to ~[-UMAP_SCALE, +UMAP_SCALE]
+            const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
+            const cy = (Math.max(...ys) + Math.min(...ys)) / 2;
+            const cz = (Math.max(...zs) + Math.min(...zs)) / 2;
+
+            // 4. Build A-Frame entities
+            setProgress(80, `Building ${coordData.length} photo entities…`);
+            coordData.forEach((doc, index) => {
+                const [ux, uy, uz] = doc.projection;
+                const pos = {
+                    x: (ux - cx) * scale,
+                    y: (uy - cy) * scale,
+                    z: (uz - cz) * scale,
+                };
+
+                // Depth from origin → opacity (closer = more opaque)
+                const dist = Math.sqrt(pos.x ** 2 + pos.y ** 2 + pos.z ** 2);
+                const maxDist = UMAP_SCALE * Math.sqrt(3);
+                const baseOpacity = Math.max(0.35, 1.0 - (dist / maxDist) * 0.65);
+
+                const imgSrc = imgMap[doc.id] || null;
+                createPhotoEntity(pos, baseOpacity, index, doc.id, doc.filename, imgSrc);
+            });
+
+            setProgress(100, 'Ready!');
+            setTimeout(() => { loadingOverlay.style.display = 'none'; }, 700);
+
+        } catch (err) {
+            console.error('Gallery load failed:', err);
+            setProgress(100, 'Failed to load.');
+            showError(`Backend error: ${err.message}. Is the server running at ${BACKEND}?`);
+            setTimeout(() => { loadingOverlay.style.display = 'none'; }, 2000);
+        }
+    }
+
+    // ── Photo entity factory ──────────────────────────────────────────────────
+    function createPhotoEntity(pos, baseOpacity, index, docId, filename, imgSrc) {
+        const wrapper = document.createElement('a-entity');
+        wrapper.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+        wrapper.setAttribute('look-at', '[camera]');
+        wrapper.classList.add('interactive');
+        wrapper.dataset.docId = docId;
+
+        // Frame
+        const frame = document.createElement('a-plane');
+        frame.setAttribute('width', '1.68');
+        frame.setAttribute('height', '1.08');
+        frame.setAttribute('material', `shader: flat; color: #ffffff; transparent: true; opacity: ${baseOpacity * 0.2}`);
+
+        // Image
+        const img = document.createElement('a-image');
+        img.setAttribute('width', '1.6');
+        img.setAttribute('height', '1.0');
+        img.setAttribute('position', '0 0 0.01');
+        img.setAttribute('opacity', baseOpacity);
+
+        if (imgSrc) {
+            // Register in <a-assets> for caching
+            const imgId = `img-${index}`;
+            const nativeImg = document.createElement('img');
+            nativeImg.crossOrigin = 'anonymous';
+            nativeImg.id = imgId;
+            nativeImg.src = imgSrc;
+            assetsEl.appendChild(nativeImg);
+            img.setAttribute('src', `#${imgId}`);
+        } else {
+            // Fallback: placeholder colour
+            img.setAttribute('material', `color: #0a2035; shader: flat; opacity: ${baseOpacity}`);
+        }
+
+        // Hover / select interactions
+        wrapper.dataset.selected = 'false';
+
+        wrapper.addEventListener('mouseenter', () => {
+            if (wrapper.dataset.selected === 'false') {
+                img.setAttribute('opacity', '1.0');
+                frame.setAttribute('material', 'color: #0770E3; opacity: 0.8');
+            }
+        });
+
+        wrapper.addEventListener('mouseleave', () => {
+            if (wrapper.dataset.selected === 'false') {
+                img.setAttribute('opacity', baseOpacity);
+                frame.setAttribute('material', `color: #ffffff; opacity: ${baseOpacity * 0.2}`);
+            }
+        });
+
+        wrapper.addEventListener('click', () => {
+            const isSelected = wrapper.dataset.selected === 'true';
+            if (!isSelected) {
+                wrapper.dataset.selected = 'true';
+                img.setAttribute('opacity', '1.0');
+                frame.setAttribute('material', 'color: #00FFFF; opacity: 1.0; shader: flat');
+                selectedPhotos.push(docId);
+                console.log(`SELECTED  id=${docId} file=${filename}`, selectedPhotos);
+            } else {
+                wrapper.dataset.selected = 'false';
+                img.setAttribute('opacity', '1.0');
+                frame.setAttribute('material', 'color: #0770E3; opacity: 0.8; shader: flat');
+                const i = selectedPhotos.indexOf(docId);
+                if (i > -1) selectedPhotos.splice(i, 1);
+                console.log(`DESELECTED id=${docId}`, selectedPhotos);
+            }
+            // VR fuse fix
+            wrapper.classList.remove('interactive');
+            setTimeout(() => wrapper.classList.add('interactive'), 150);
+        });
+
+        wrapper.appendChild(frame);
+        wrapper.appendChild(img);
+        galleryEl.appendChild(wrapper);
+    }
+
+    // ── Arrow guide logic ─────────────────────────────────────────────────────
+    let guideInterval;
+    const arrows = {
+        top:         document.getElementById('arrow-top'),
+        topRight:    document.getElementById('arrow-top-right'),
+        right:       document.getElementById('arrow-right'),
+        bottomRight: document.getElementById('arrow-bottom-right'),
+        bottom:      document.getElementById('arrow-bottom'),
+        bottomLeft:  document.getElementById('arrow-bottom-left'),
+        left:        document.getElementById('arrow-left'),
+        topLeft:     document.getElementById('arrow-top-left'),
+    };
+
+    function guideToPoint(targetPos) {
+        clearInterval(guideInterval);
+        Object.values(arrows).forEach(el => el.setAttribute('visible', 'false'));
+
+        const cameraEl  = document.querySelector('a-camera');
+        const cameraObj = cameraEl.getObject3D('camera');
+        const targetVec = new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z);
+
+        guideInterval = setInterval(() => {
+            const camMatrix   = cameraObj.matrixWorld;
+            const camWorldPos = new THREE.Vector3();
+            cameraObj.getWorldPosition(camWorldPos);
+
+            const camRight   = new THREE.Vector3().setFromMatrixColumn(camMatrix, 0);
+            const camUp      = new THREE.Vector3().setFromMatrixColumn(camMatrix, 1);
+            const camForward = new THREE.Vector3().setFromMatrixColumn(camMatrix, 2).negate();
+
+            const dirToTarget = targetVec.clone().sub(camWorldPos).normalize();
+            const dotRight    = dirToTarget.dot(camRight);
+            const dotUp       = dirToTarget.dot(camUp);
+            const dotForward  = dirToTarget.dot(camForward);
+
+            Object.values(arrows).forEach(el => el.setAttribute('visible', 'false'));
+
+            if (dotForward > 0.95) {
+                clearInterval(guideInterval);
+                console.log('Guide: target found!');
+                return;
+            }
+
+            let angle = Math.atan2(dotUp, dotRight) * (180 / Math.PI);
+            if (angle < 0) angle += 360;
+
+            if      (angle >= 337.5 || angle < 22.5)  arrows.right.setAttribute('visible', 'true');
+            else if (angle >= 22.5  && angle < 67.5)  arrows.topRight.setAttribute('visible', 'true');
+            else if (angle >= 67.5  && angle < 112.5) arrows.top.setAttribute('visible', 'true');
+            else if (angle >= 112.5 && angle < 157.5) arrows.topLeft.setAttribute('visible', 'true');
+            else if (angle >= 157.5 && angle < 202.5) arrows.left.setAttribute('visible', 'true');
+            else if (angle >= 202.5 && angle < 247.5) arrows.bottomLeft.setAttribute('visible', 'true');
+            else if (angle >= 247.5 && angle < 292.5) arrows.bottom.setAttribute('visible', 'true');
+            else if (angle >= 292.5 && angle < 337.5) arrows.bottomRight.setAttribute('visible', 'true');
+        }, 100);
+    }
+
+    // ── Boot ──────────────────────────────────────────────────────────────────
+    loadGallery();
+</script>
+</body>
+</html>
