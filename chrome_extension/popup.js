@@ -27,6 +27,10 @@ const textsEmpty = document.getElementById("textsEmpty");
 const photosEmpty = document.getElementById("photosEmpty");
 const songsEmpty = document.getElementById("songsEmpty");
 const globalLoader = document.getElementById("globalLoader");
+const btnLogin = document.getElementById("btnLogin");
+const userInfo = document.getElementById("userInfo");
+const userAvatar = document.getElementById("userAvatar");
+const userName = document.getElementById("userName");
 
 function showLoader() { globalLoader.style.display = "flex"; }
 function hideLoader() { globalLoader.style.display = "none"; }
@@ -38,6 +42,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     setupTabs();
     setupSaveHandlers();
     setupPhotoUpload();
+    setupAuth();
     await detectYouTube();
 });
 
@@ -125,6 +130,66 @@ async function deleteApiItem(collection, id) {
 function updateCount() {
     const total = localItems.length + apiPhotos.length + apiTexts.length;
     itemCountEl.textContent = `${total} saved`;
+}
+
+// ============================================================
+// AUTHENTICATION (Google Sign-In)
+// ============================================================
+async function setupAuth() {
+    // Check if user info is cached
+    const { userData } = await chrome.storage.local.get("userData");
+    if (userData) {
+        showUserInfo(userData);
+    }
+
+    btnLogin.addEventListener("click", async () => {
+        try {
+            // Get token from Chrome
+            // Note: This requires "oauth2" client_id in manifest.json
+            chrome.identity.getAuthToken({ interactive: true }, async (token) => {
+                if (chrome.runtime.lastError || !token) {
+                    console.warn("[Travel Saver] Auth failed or missing Client ID. Falling back to Demo Mode.");
+                    handleDemoLogin();
+                    return;
+                }
+
+                // Fetch real user info from Google
+                const res = await fetch(`https://www.googleapis.com/oauth2/v1/userinfo?alt=json&access_token=${token}`);
+                const data = await res.json();
+
+                const user = {
+                    name: data.name,
+                    avatar: data.picture,
+                    email: data.email
+                };
+
+                await chrome.storage.local.set({ userData: user });
+                showUserInfo(user);
+                showToast(`Welcome back, ${user.name}!`);
+            });
+        } catch (err) {
+            console.error("[Travel Saver] Identity error:", err);
+            handleDemoLogin();
+        }
+    });
+}
+
+function showUserInfo(user) {
+    btnLogin.style.display = "none";
+    userInfo.style.display = "flex";
+    userAvatar.src = user.avatar;
+    userName.textContent = user.name;
+}
+
+function handleDemoLogin() {
+    const demoUser = {
+        name: "Travel Explorer",
+        avatar: "https://www.gstatic.com/images/branding/product/2x/avatar_square_blue_120dp.png",
+        email: "demo@travelsaver.ext"
+    };
+    chrome.storage.local.set({ userData: demoUser });
+    showUserInfo(demoUser);
+    showToast("Signed in as Travel Explorer (Demo Mode)");
 }
 
 // ============================================================
