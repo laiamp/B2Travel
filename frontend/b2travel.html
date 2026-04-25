@@ -143,10 +143,10 @@
 
             // Build a map: id → base64 data-URI
             setProgress(65, 'Preparing textures…');
-            const imgMap = {};
+            window.globalImgMap = {};
             for (const item of imgData) {
                 if (item.image_base64) {
-                    imgMap[item.id] = `data:${item.content_type};base64,${item.image_base64}`;
+                    window.globalImgMap[item.id] = `data:${item.content_type};base64,${item.image_base64}`;
                 }
             }
 
@@ -160,19 +160,19 @@
                 Math.max(...zs) - Math.min(...zs),
                 1  // avoid division by zero
             );
-            const scale = (UMAP_SCALE * 2) / maxRange;  // maps to ~[-UMAP_SCALE, +UMAP_SCALE]
-            const cx = (Math.max(...xs) + Math.min(...xs)) / 2;
-            const cy = (Math.max(...ys) + Math.min(...ys)) / 2;
-            const cz = (Math.max(...zs) + Math.min(...zs)) / 2;
+            window.globalScale = (UMAP_SCALE * 2) / maxRange;  // maps to ~[-UMAP_SCALE, +UMAP_SCALE]
+            window.globalCx = (Math.max(...xs) + Math.min(...xs)) / 2;
+            window.globalCy = (Math.max(...ys) + Math.min(...ys)) / 2;
+            window.globalCz = (Math.max(...zs) + Math.min(...zs)) / 2;
 
             // 4. Build A-Frame entities
             setProgress(80, `Building ${coordData.length} photo entities…`);
             coordData.forEach((doc, index) => {
                 const [ux, uy, uz] = doc.projection;
                 const pos = {
-                    x: (ux - cx) * scale,
-                    y: (uy - cy) * scale,
-                    z: (uz - cz) * scale,
+                    x: (ux - window.globalCx) * window.globalScale,
+                    y: (uy - window.globalCy) * window.globalScale,
+                    z: (uz - window.globalCz) * window.globalScale,
                 };
 
                 // Depth from origin → opacity (closer = more opaque)
@@ -180,12 +180,15 @@
                 const maxDist = UMAP_SCALE * Math.sqrt(3);
                 const baseOpacity = Math.max(0.35, 1.0 - (dist / maxDist) * 0.65);
 
-                const imgSrc = imgMap[doc.id] || null;
+                const imgSrc = window.globalImgMap[doc.id] || null;
                 createPhotoEntity(pos, baseOpacity, index, doc.id, doc.filename, imgSrc);
             });
 
             setProgress(100, 'Ready!');
             setTimeout(() => { loadingOverlay.style.display = 'none'; }, 700);
+            
+            // Start listening to the AI Agent
+            pollEvents();
 
         } catch (err) {
             console.error('Gallery load failed:', err);
@@ -263,6 +266,25 @@
                 if (i > -1) selectedPhotos.splice(i, 1);
                 console.log(`DESELECTED id=${docId}`, selectedPhotos);
             }
+
+            // 🌟 Send currently selected images to the AI Agent
+            if (selectedPhotos.length > 0) {
+                try {
+                    const imagesBase64 = selectedPhotos.map(id => window.globalImgMap[id].split(',')[1]);
+                    fetch(`${BACKEND}/recommend/`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify({ images_base64: imagesBase64 })
+                    });
+                    console.log("Sent selection to agent!");
+                } catch (e) {
+                    console.error("Failed to notify agent", e);
+                }
+            }
+
             // VR fuse fix
             wrapper.classList.remove('interactive');
             setTimeout(() => wrapper.classList.add('interactive'), 150);
@@ -328,6 +350,32 @@
             else if (angle >= 247.5 && angle < 292.5) arrows.bottom.setAttribute('visible', 'true');
             else if (angle >= 292.5 && angle < 337.5) arrows.bottomRight.setAttribute('visible', 'true');
         }, 100);
+    }
+
+    // ── AI Agent Event Polling ────────────────────────────────────────────────
+    async function pollEvents() {
+        try {
+            const res = await fetch(`${BACKEND}/events/front`, {
+                headers: { 'ngrok-skip-browser-warning': 'true' }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.event && data.event.position) {
+                    const [ux, uy, uz] = data.event.position;
+                    const pos = {
+                        x: (ux - window.globalCx) * window.globalScale,
+                        y: (uy - window.globalCy) * window.globalScale,
+                        z: (uz - window.globalCz) * window.globalScale,
+                    };
+                    console.log(`Agent said: ${data.event.vibe}. Guiding to:`, pos);
+                    guideToPoint(pos);
+                    showError(`Agent guiding you to: ${data.event.vibe}`); // Reusing errorBanner as a notification popup
+                }
+            }
+        } catch (e) {
+            console.error("Polling error:", e);
+        }
+        setTimeout(pollEvents, 2000);
     }
 
     // ── Boot ──────────────────────────────────────────────────────────────────
