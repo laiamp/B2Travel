@@ -126,6 +126,7 @@ async def direction(request: Request):
 
     event = {
         "type": "redirect",
+        "vibe": text,
         "destination": "front",
         "position": [float(v) for v in position],
         "recieved": False,
