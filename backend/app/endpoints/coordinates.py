@@ -129,7 +129,7 @@ async def direction(request: Request):
         "vibe": text,
         "destination": "front",
         "position": [float(v) for v in position],
-        "recieved": False,
+        "received": False,
     }
 
     try:
@@ -141,6 +141,7 @@ async def direction(request: Request):
         "event_id": str(result.inserted_id),
         "position": event["position"],
         "type": event["type"],
+        "vibe": event["vibe"],
         "destination": event["destination"],
-        "recieved": event["recieved"],
+        "received": event["received"],
     }

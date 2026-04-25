@@ -17,8 +17,8 @@ def _serialize_event(document: dict) -> dict:
 async def _get_latest_unreceived(destination: str) -> dict:
 	try:
 		event = await events_col.find_one_and_update(
-			{"destination": destination, "recieved": False},
-			{"$set": {"recieved": True}},
+			{"destination": destination, "received": False},
+			{"$set": {"received": True}},
 			sort=[("_id", DESCENDING)],
 			return_document=ReturnDocument.BEFORE,
 		)

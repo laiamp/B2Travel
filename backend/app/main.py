@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.db import close_database
-from app.endpoints import coordinates, delete, events, flights, health, ingest, retrieve
+from app.endpoints import coordinates, delete, events, flights, health, ingest, recommend, retrieve
 
 
 @asynccontextmanager
@@ -42,6 +42,7 @@ app.include_router(retrieve.router)
 app.include_router(coordinates.router)
 app.include_router(flights.router)
 app.include_router(events.router)
+app.include_router(recommend.router)
 
 
 @app.get("/")
