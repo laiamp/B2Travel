@@ -1,5 +1,6 @@
 import os
 import requests
+from loguru import logger
 from elevenlabs.client import ElevenLabs
 from elevenlabs.conversational_ai.conversation import Conversation, ClientTools
 from elevenlabs.conversational_ai.default_audio_interface import DefaultAudioInterface
@@ -9,7 +10,7 @@ def log_message(parameters):
     message = parameters.get("message")
     print("Puta", message)
 
-def check_health(parameters):
+async def check_health(parameters):
     """
     Check the health status of the backend or database.
     Argument: parameters['type'] can be 'server' (default) or 'db'.
@@ -22,7 +23,7 @@ def check_health(parameters):
         url += "/db"
     
     try:
-        response = requests.get(url)
+        response = await requests.get(url)
         data = response.json()
         print(f"[Client Tool] Output: {data}")
         return str(data)
@@ -32,19 +33,12 @@ def check_health(parameters):
         return error_msg
 
 
-# TODO: POST http://127.0.0.1:8000/coordinates/direction 
-# {
-#     "text": "Summer"
-# }
 
-from loguru import logger
-
-def handle_vibe(parameters):
+async def handle_vibe(parameters):
     vibe = parameters.get("vibe")
-    print('obtained vibe:', vibe)
-    print('sending to VR...')
+    logger.info('obtained vibe:', vibe)
     try:
-        response = requests.post("http://localhost:8000/coordinates/direction", json={"text": vibe})
+        response = await requests.post("http://localhost:8000/coordinates/direction", json={"text": vibe})
         data = response.json()
         logger.info(f"[Client Tool] Output: {data}")
         return str(data)
@@ -53,7 +47,7 @@ def handle_vibe(parameters):
         logger.error(f"[Client Tool] {error_msg}")
         return error_msg
     try:
-        response = requests.post("http://localhost:8000/coordinates/direction", json={"text": vibe})
+        response = await requests.post("http://localhost:8000/coordinates/direction", json={"text": vibe})
         data = response.json()
         print(f"[Client Tool] Output: {data}")
         return str(data)
@@ -62,18 +56,26 @@ def handle_vibe(parameters):
         print(f"[Client Tool] {error_msg}")
         return error_msg
 
-# def handle_date(date):
-#     print('Getting flights for that date...')
 
-# def handle_budget(budget):
-#     print('Getting all destinations with prices...')
-#     print('Selecting subset of cities for that budget..')
+# GET http://127.0.0.1:8000/events/agent
+async def get_recommendations(parameters):
+    logger.info(f"Getting recommendations...")
+    try:
+        response = await requests.get("http://localhost:8000/events/agent")
+        data = response.json()
+        logger.info(f"[Client Tool] Output: {data}")
+        return str(data)
+    except Exception as e:
+        error_msg = f"Error getting recommendations: {e}"
+        logger.error(f"[Client Tool] {error_msg}")
+        return error_msg
 
 
 
 client_tools = ClientTools()
 client_tools.register("logMessage", log_message)
 client_tools.register("handleVibe", handle_vibe)
+client_tools.register("getRecommendations", get_recommendations)    
 client_tools.register("checkHealth", check_health)
 
 # Initialize the client
