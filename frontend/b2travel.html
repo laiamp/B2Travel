@@ -143,10 +143,10 @@
 
             // Build a map: id → base64 data-URI
             setProgress(65, 'Preparing textures…');
-            const imgMap = {};
+            window.globalImgMap = {};
             for (const item of imgData) {
                 if (item.image_base64) {
-                    imgMap[item.id] = `data:${item.content_type};base64,${item.image_base64}`;
+                    window.globalImgMap[item.id] = `data:${item.content_type};base64,${item.image_base64}`;
                 }
             }
 
@@ -180,7 +180,7 @@
                 const maxDist = UMAP_SCALE * Math.sqrt(3);
                 const baseOpacity = Math.max(0.35, 1.0 - (dist / maxDist) * 0.65);
 
-                const imgSrc = imgMap[doc.id] || null;
+                const imgSrc = window.globalImgMap[doc.id] || null;
                 createPhotoEntity(pos, baseOpacity, index, doc.id, doc.filename, imgSrc);
             });
 
@@ -266,6 +266,25 @@
                 if (i > -1) selectedPhotos.splice(i, 1);
                 console.log(`DESELECTED id=${docId}`, selectedPhotos);
             }
+
+            // 🌟 Send currently selected images to the AI Agent
+            if (selectedPhotos.length > 0) {
+                try {
+                    const imagesBase64 = selectedPhotos.map(id => window.globalImgMap[id].split(',')[1]);
+                    fetch(`${BACKEND}/recommend/`, {
+                        method: 'POST',
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'ngrok-skip-browser-warning': 'true'
+                        },
+                        body: JSON.stringify({ images_base64: imagesBase64 })
+                    });
+                    console.log("Sent selection to agent!");
+                } catch (e) {
+                    console.error("Failed to notify agent", e);
+                }
+            }
+
             // VR fuse fix
             wrapper.classList.remove('interactive');
             setTimeout(() => wrapper.classList.add('interactive'), 150);
