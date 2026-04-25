@@ -43,6 +43,11 @@ async def _check_health_async(check_type: str) -> str:
         response.raise_for_status()
         return str(response.json())
 
+async def _get_flights_async() -> str:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get("http://localhost:8000/search/flights")
+        response.raise_for_status()
+        return str(response.json())
 
 def check_health(parameters):
     """
@@ -104,12 +109,22 @@ def get_recommendations(parameters):
         logger.error(f"[Client Tool] {error_msg}")
         return error_msg
 
-
+def get_flights(parameters):
+    logger.info(f"Getting flights...")
+    try:
+        data = _run_coro_sync(_get_flights_async())
+        logger.info(f"[Client Tool] Output: {data}")
+        return data
+    except Exception as e:
+        error_msg = f"Error getting flights: {e}"
+        logger.error(f"[Client Tool] {error_msg}")
+        return error_msg
 
 client_tools = ClientTools()
 client_tools.register("logMessage", log_message)
 client_tools.register("handleVibe", handle_vibe)
-client_tools.register("getRecommendations", get_recommendations)    
+client_tools.register("getRecommendations", get_recommendations)
+client_tools.register("getFlights", get_flights)    
 client_tools.register("checkHealth", check_health)
 
 # Initialize the client
