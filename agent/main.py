@@ -43,9 +43,10 @@ async def _check_health_async(check_type: str) -> str:
         response.raise_for_status()
         return str(response.json())
 
-async def _get_flights_async() -> str:
+async def _get_flights_async(parameters: dict) -> str:
+    print(parameters)
     async with httpx.AsyncClient(timeout=10.0) as client:
-        response = await client.get("http://localhost:8000/search/flights")
+        response = await client.post("http://localhost:8000/flights/search", json=parameters)
         response.raise_for_status()
         return str(response.json())
 
@@ -111,8 +112,9 @@ def get_recommendations(parameters):
 
 def get_flights(parameters):
     logger.info(f"Getting flights...")
+    print(parameters)
     try:
-        data = _run_coro_sync(_get_flights_async())
+        data = _run_coro_sync(_get_flights_async(parameters=parameters))
         logger.info(f"[Client Tool] Output: {data}")
         return data
     except Exception as e:
