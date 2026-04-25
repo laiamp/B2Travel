@@ -191,6 +191,7 @@ function setupPhotoUpload() {
                 date: new Date().toISOString()
             };
             await addItem(item);
+            ingestImage(file, file.name); // fire-and-forget
         }
         renderPhotos();
         showToast(`📸 ${files.length} photo${files.length > 1 ? "s" : ""} saved!`);
@@ -215,6 +216,7 @@ function setupPhotoUpload() {
                 date: new Date().toISOString()
             };
             await addItem(item);
+            ingestImage(file, file.name); // fire-and-forget
         }
         renderPhotos();
         showToast(`📸 ${files.length} photo${files.length > 1 ? "s" : ""} saved!`);
@@ -228,6 +230,25 @@ function fileToDataUrl(file) {
         reader.onerror = reject;
         reader.readAsDataURL(file);
     });
+}
+
+// ---- Backend ingestion ----
+const INGEST_URL = "http://localhost:8000/ingest/image";
+
+/**
+ * Fire-and-forget POST to the embeddings backend.
+ * Accepts a File or Blob. Never throws — saving always succeeds even if backend is down.
+ */
+async function ingestImage(fileOrBlob, filename) {
+    try {
+        const form = new FormData();
+        form.append("image", fileOrBlob, filename || "image.jpg");
+        const res = await fetch(INGEST_URL, { method: "POST", body: form });
+        if (!res.ok) console.warn("[Travel Saver] Ingest failed:", res.status, await res.text());
+        else console.log("[Travel Saver] Ingested:", filename);
+    } catch (err) {
+        console.warn("[Travel Saver] Backend unreachable, skipping ingest:", err.message);
+    }
 }
 
 // ---- Renderers ----

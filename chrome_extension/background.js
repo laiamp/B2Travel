@@ -49,15 +49,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             const response = await fetch(info.srcUrl);
             const blob = await response.blob();
             const dataUrl = await blobToDataUrl(blob);
+            const name = info.srcUrl.split("/").pop().split("?")[0] || "image.jpg";
             const item = {
                 id: Date.now().toString(),
                 type: "photo",
                 dataUrl,
-                name: info.srcUrl.split("/").pop().split("?")[0] || "image",
+                name,
                 sourceUrl: tab.url,
                 date: new Date().toISOString()
             };
             await saveItem(item);
+            ingestImageBlob(blob, name); // fire-and-forget
             showNotification("Image saved to Travel Board!");
         } catch (e) {
             console.error("Failed to save image:", e);
@@ -127,9 +129,26 @@ function blobToDataUrl(blob) {
 }
 
 function showNotification(message) {
-    // Chrome MV3 doesn't need notifications permission for basic badge feedback
-    // We'll use the badge as a lightweight signal
     chrome.action.setBadgeText({ text: "✓" });
     chrome.action.setBadgeBackgroundColor({ color: "#00e5cc" });
     setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2000);
+}
+
+// ---- Backend ingestion ----
+const INGEST_URL = "http://localhost:8000/ingest/image";
+
+/**
+ * Fire-and-forget POST to the embeddings backend.
+ * Never throws — saving always succeeds even if the backend is down.
+ */
+async function ingestImageBlob(blob, filename) {
+    try {
+        const form = new FormData();
+        form.append("image", blob, filename || "image.jpg");
+        const res = await fetch(INGEST_URL, { method: "POST", body: form });
+        if (!res.ok) console.warn("[Travel Saver] Ingest failed:", res.status);
+        else console.log("[Travel Saver] Ingested:", filename);
+    } catch (err) {
+        console.warn("[Travel Saver] Backend unreachable, skipping ingest:", err.message);
+    }
 }
