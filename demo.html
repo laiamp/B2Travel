@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <title>Skyscanner VR Gallery - Click to Select</title>
+  <title>Skyscanner VR Gallery - Smart Guide Optimized (8 Directions)</title>
   <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
   <script src="https://unpkg.com/aframe-look-at-component@0.8.0/dist/aframe-look-at-component.min.js"></script>
   <style>
@@ -14,7 +14,7 @@
   <a-scene background="color: #05111f" cursor="rayOrigin: mouse" raycaster="objects: .interactive">
     <a-camera position="0 0 0" look-controls="pointerLockEnabled: false">
       
-      <a-entity cursor="fuse: false" position="0 0 -1"
+      <a-entity cursor="fuse: true; fuseTimeout: 1500" position="0 0 -1"
                 geometry="primitive: ring; radiusInner: 0.015; radiusOuter: 0.02"
                 material="color: #0770E3; shader: flat"
                 animation__mouseenter="property: scale; to: 1.5 1.5 1.5; startEvents: mouseenter; dur: 200"
@@ -27,16 +27,32 @@
                 position="0 0.35 -1" visible="false" 
                 animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
       
+      <a-entity id="arrow-top-right" geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" 
+                position="0.32 0.25 -1" rotation="0 0 -45" visible="false" 
+                animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+
+      <a-entity id="arrow-right" geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" 
+                position="0.45 0 -1" rotation="0 0 -90" visible="false" 
+                animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+      
+      <a-entity id="arrow-bottom-right" geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" 
+                position="0.32 -0.18 -1" rotation="0 0 -135" visible="false" 
+                animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+
       <a-entity id="arrow-bottom" geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" 
                 position="0 -0.25 -1" rotation="0 0 180" visible="false" 
                 animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
       
+      <a-entity id="arrow-bottom-left" geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" 
+                position="-0.32 -0.18 -1" rotation="0 0 135" visible="false" 
+                animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+
       <a-entity id="arrow-left" geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" 
                 position="-0.45 0 -1" rotation="0 0 90" visible="false" 
                 animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
       
-      <a-entity id="arrow-right" geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" 
-                position="0.45 0 -1" rotation="0 0 -90" visible="false" 
+      <a-entity id="arrow-top-left" geometry="primitive: triangle" scale="0.2 0.08 1" material="color: #00FFFF; shader: flat; transparent: true" 
+                position="-0.32 0.25 -1" rotation="0 0 45" visible="false" 
                 animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
     </a-camera>
 
@@ -175,9 +191,12 @@
           if (arrayIndex > -1) selectedPhotos.splice(arrayIndex, 1);
           printToTerminal("DESELECTED", index);
         }
-        
-        // NOTE: The previous VR fuse hack (removing/adding the interactive class) 
-        // was deleted here because it is entirely unnecessary for physical clicks.
+
+        // --- VR FUSE FIX: Force Raycaster Reset ---
+        wrapper.classList.remove('interactive');
+        setTimeout(() => {
+          wrapper.classList.add('interactive');
+        }, 150);
       });
 
       wrapper.appendChild(frame);
@@ -185,14 +204,18 @@
       galleryEl.appendChild(wrapper);
     }
 
-    // --- Smart Directional 3D Guide Logic ---
+    // --- Smart Directional 3D Guide Logic (8 Directions) ---
     let guideInterval;
     
     const arrows = {
       top: document.getElementById('arrow-top'),
+      topRight: document.getElementById('arrow-top-right'),
+      right: document.getElementById('arrow-right'),
+      bottomRight: document.getElementById('arrow-bottom-right'),
       bottom: document.getElementById('arrow-bottom'),
+      bottomLeft: document.getElementById('arrow-bottom-left'),
       left: document.getElementById('arrow-left'),
-      right: document.getElementById('arrow-right')
+      topLeft: document.getElementById('arrow-top-left')
     };
 
     function guideToPoint(targetPos) {
@@ -224,24 +247,35 @@
         Object.values(arrows).forEach(el => el.setAttribute('visible', 'false'));
 
         // --- SUCCESS CONDITION ---
-        // If target is directly in front (Tolerance > 0.95), STOP guiding entirely.
         if (dotForward > 0.95) {
           clearInterval(guideInterval);
           console.log("=== Target found! Guide stopped. ===");
           return; 
         }
 
-        // Decide direction
-        let isHorizontal = Math.abs(dotRight) > Math.abs(dotUp);
-        if (dotForward < 0) isHorizontal = true; // Prioritize turning around if target is behind
+        // Calculate angle based on Up and Right vectors (returns degrees)
+        let angle = Math.atan2(dotUp, dotRight) * (180 / Math.PI);
+        if (angle < 0) angle += 360; // Normalize angle to 0-360 range
 
-        if (isHorizontal) {
-          if (dotRight > 0) arrows.right.setAttribute('visible', 'true');
-          else arrows.left.setAttribute('visible', 'true');
-        } else {
-          if (dotUp > 0) arrows.top.setAttribute('visible', 'true');
-          else arrows.bottom.setAttribute('visible', 'true');
+        // Map angle to 8 directional sectors (45 degrees per sector)
+        if (angle >= 337.5 || angle < 22.5) {
+          arrows.right.setAttribute('visible', 'true');
+        } else if (angle >= 22.5 && angle < 67.5) {
+          arrows.topRight.setAttribute('visible', 'true');
+        } else if (angle >= 67.5 && angle < 112.5) {
+          arrows.top.setAttribute('visible', 'true');
+        } else if (angle >= 112.5 && angle < 157.5) {
+          arrows.topLeft.setAttribute('visible', 'true');
+        } else if (angle >= 157.5 && angle < 202.5) {
+          arrows.left.setAttribute('visible', 'true');
+        } else if (angle >= 202.5 && angle < 247.5) {
+          arrows.bottomLeft.setAttribute('visible', 'true');
+        } else if (angle >= 247.5 && angle < 292.5) {
+          arrows.bottom.setAttribute('visible', 'true');
+        } else if (angle >= 292.5 && angle < 337.5) {
+          arrows.bottomRight.setAttribute('visible', 'true');
         }
+
       }, 100);
     }
 
