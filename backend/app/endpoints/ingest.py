@@ -1,46 +1,14 @@
 from io import BytesIO
 
-import torch
 from bson.binary import Binary
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
-from pydantic import BaseModel
 from pymongo.errors import PyMongoError
-from transformers import CLIPModel, CLIPProcessor
 
 from app.db import embeddings_col
+from app.utils.clip_embeddings import MODEL_NAME, embed_image, embed_text
 
 router = APIRouter(prefix="/ingest", tags=["ingest"])
-
-_MODEL_NAME = "openai/clip-vit-base-patch32"
-_processor: CLIPProcessor | None = None
-_model: CLIPModel | None = None
-
-
-def _get_clip_components() -> tuple[CLIPProcessor, CLIPModel]:
-    global _processor, _model
-    if _processor is None or _model is None:
-        _processor = CLIPProcessor.from_pretrained(_MODEL_NAME)
-        _model = CLIPModel.from_pretrained(_MODEL_NAME)
-        _model.eval()
-    return _processor, _model
-
-
-def _extract_embedding(raw_output: torch.Tensor, modality: str) -> list[float]:
-    """Resolve CLIP output to a normalised 1-D embedding list."""
-    embed_attr = "image_embeds" if modality == "image" else "text_embeds"
-
-    if isinstance(raw_output, torch.Tensor):
-        tensor = raw_output
-    elif hasattr(raw_output, "pooler_output"):
-        tensor = raw_output.pooler_output
-    elif hasattr(raw_output, embed_attr):
-        tensor = getattr(raw_output, embed_attr)
-    else:
-        raise HTTPException(status_code=500, detail="Unexpected CLIP output format")
-
-    normalized = tensor / tensor.norm(dim=-1, keepdim=True)
-    return normalized[0].cpu().tolist()
 
 
 async def _save_to_db(document: dict) -> str:
@@ -65,17 +33,16 @@ async def ingest_image(image: UploadFile = File(...)) -> dict:
     except UnidentifiedImageError:
         raise HTTPException(status_code=400, detail="Invalid image format")
 
-    processor, model = _get_clip_components()
-    inputs = processor(images=pil_image, return_tensors="pt")
-
-    with torch.no_grad():
-        embedding = _extract_embedding(model.get_image_features(**inputs), "image")
+    try:
+        embedding = embed_image(pil_image)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to generate image embedding: {exc}")
 
     doc_id = await _save_to_db({
         "filename": image.filename,
         "content_type": image.content_type,
         "size_bytes": len(raw_bytes),
-        "model": _MODEL_NAME,
+        "model": MODEL_NAME,
         "image": Binary(raw_bytes),
         "embedding": embedding,
 				"projection": None
@@ -94,17 +61,16 @@ async def ingest_text(text: str = Form(...)) -> dict:
     if not text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
 
-    processor, model = _get_clip_components()
-    inputs = processor(text=[text], return_tensors="pt", padding=True, truncation=True)
-
-    with torch.no_grad():
-        embedding = _extract_embedding(model.get_text_features(**inputs), "text")
+    try:
+        embedding = embed_text(text)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to generate text embedding: {exc}")
 
     doc_id = await _save_to_db({
         "text": text,
         "content_type": "text/plain",
         "size_bytes": len(text.encode()),
-        "model": _MODEL_NAME,
+        "model": MODEL_NAME,
         "embedding": embedding,
     })
 

@@ -6,6 +6,7 @@ client = AsyncMongoClient(settings.MONGODB_URL)
 
 db = client.get_database("secondBrain")
 embeddings_col = db.get_collection("embeddings")
+events_col = db.get_collection("events")
 
 async def ping_database() -> None:
     await client.admin.command("ping")
