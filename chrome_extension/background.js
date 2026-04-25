@@ -1,4 +1,5 @@
 // background.js — Service Worker for Travel Saver
+const API_BASE = "http://127.0.0.1:8000";
 
 chrome.runtime.onInstalled.addListener(() => {
     // Context menu for selected text
@@ -32,15 +33,15 @@ chrome.runtime.onInstalled.addListener(() => {
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     if (info.menuItemId === "save-text") {
-        const item = {
-            id: Date.now().toString(),
-            type: "text",
-            content: info.selectionText,
-            sourceUrl: tab.url,
-            sourceTitle: tab.title,
-            date: new Date().toISOString()
-        };
-        await saveItem(item);
+        // POST text to backend API for embedding + storage
+        try {
+            const form = new FormData();
+            form.append("text", info.selectionText);
+            const res = await fetch(`${API_BASE}/ingest/text`, { method: "POST", body: form });
+            if (!res.ok) console.warn("[Travel Saver] Text ingest failed:", res.status);
+        } catch (e) {
+            console.warn("[Travel Saver] Backend unreachable (text):", e.message);
+        }
         showNotification("Text saved to Travel Board!");
     }
 
@@ -135,17 +136,11 @@ function showNotification(message) {
 }
 
 // ---- Backend ingestion ----
-const INGEST_URL = "http://localhost:8000/ingest/image";
-
-/**
- * Fire-and-forget POST to the embeddings backend.
- * Never throws — saving always succeeds even if the backend is down.
- */
 async function ingestImageBlob(blob, filename) {
     try {
         const form = new FormData();
         form.append("image", blob, filename || "image.jpg");
-        const res = await fetch(INGEST_URL, { method: "POST", body: form });
+        const res = await fetch(`${API_BASE}/ingest/image`, { method: "POST", body: form });
         if (!res.ok) console.warn("[Travel Saver] Ingest failed:", res.status);
         else console.log("[Travel Saver] Ingested:", filename);
     } catch (err) {
