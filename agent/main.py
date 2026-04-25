@@ -1,5 +1,8 @@
 import os
-import requests
+import asyncio
+import threading
+
+import httpx
 from loguru import logger
 from elevenlabs.client import ElevenLabs
 from elevenlabs.conversational_ai.conversation import Conversation, ClientTools
@@ -10,61 +13,92 @@ def log_message(parameters):
     message = parameters.get("message")
     print("Puta", message)
 
-async def check_health(parameters):
+def _run_coro_sync(coro):
+    """Run an async coroutine from sync tool callbacks safely."""
+    result: dict[str, str] = {}
+    error: dict[str, Exception] = {}
+
+    def _runner():
+        try:
+            result["value"] = asyncio.run(coro)
+        except Exception as exc:
+            error["exc"] = exc
+
+    thread = threading.Thread(target=_runner, daemon=True)
+    thread.start()
+    thread.join()
+
+    if "exc" in error:
+        raise error["exc"]
+    return result.get("value")
+
+
+async def _check_health_async(check_type: str) -> str:
+    url = "http://localhost:8000/health"
+    if check_type == "db":
+        url += "/db"
+
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get(url)
+        response.raise_for_status()
+        return str(response.json())
+
+
+def check_health(parameters):
     """
     Check the health status of the backend or database.
     Argument: parameters['type'] can be 'server' (default) or 'db'.
     """
     check_type = parameters.get("type", "server")
     print(f"[Client Tool] Checking health for: {check_type}")
-    
-    url = "http://localhost:8000/health"
-    if check_type == "db":
-        url += "/db"
-    
+
     try:
-        response = await requests.get(url)
-        data = response.json()
+        data = _run_coro_sync(_check_health_async(check_type))
         print(f"[Client Tool] Output: {data}")
-        return str(data)
+        return data
     except Exception as e:
         error_msg = f"Error checking health: {e}"
         print(f"[Client Tool] {error_msg}")
         return error_msg
 
 
+async def _handle_vibe_async(vibe: str) -> str:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post("http://localhost:8000/coordinates/direction", json={"text": vibe})
+        response.raise_for_status()
+        return str(response.json())
 
-async def handle_vibe(parameters):
-    vibe = parameters.get("vibe")
-    logger.info('obtained vibe:', vibe)
+
+def handle_vibe(parameters):
+    vibe = str(parameters.get("vibe", "")).strip()
+    logger.info("obtained vibe: {}", vibe)
+    if not vibe:
+        return "Error sending vibe: missing vibe"
+
     try:
-        response = await requests.post("http://localhost:8000/coordinates/direction", json={"text": vibe})
-        data = response.json()
+        data = _run_coro_sync(_handle_vibe_async(vibe))
         logger.info(f"[Client Tool] Output: {data}")
-        return str(data)
+        return data
     except Exception as e:
         error_msg = f"Error sending vibe: {e}"
         logger.error(f"[Client Tool] {error_msg}")
         return error_msg
-    try:
-        response = await requests.post("http://localhost:8000/coordinates/direction", json={"text": vibe})
-        data = response.json()
-        print(f"[Client Tool] Output: {data}")
-        return str(data)
-    except Exception as e:
-        error_msg = f"Error sending vibe: {e}"
-        print(f"[Client Tool] {error_msg}")
-        return error_msg
 
 
 # GET http://127.0.0.1:8000/events/agent
-async def get_recommendations(parameters):
+async def _get_recommendations_async() -> str:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.get("http://localhost:8000/events/agent")
+        response.raise_for_status()
+        return str(response.json())
+
+
+def get_recommendations(parameters):
     logger.info(f"Getting recommendations...")
     try:
-        response = await requests.get("http://localhost:8000/events/agent")
-        data = response.json()
+        data = _run_coro_sync(_get_recommendations_async())
         logger.info(f"[Client Tool] Output: {data}")
-        return str(data)
+        return data
     except Exception as e:
         error_msg = f"Error getting recommendations: {e}"
         logger.error(f"[Client Tool] {error_msg}")
