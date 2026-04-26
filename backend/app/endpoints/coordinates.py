@@ -120,11 +120,34 @@ async def direction(request: Request):
         raise HTTPException(status_code=500, detail=f"Failed to generate embedding: {exc}")
 
     try:
-        position = project_with_existing_model(embedding)
-    except RuntimeError as exc:
-        raise HTTPException(status_code=409, detail=str(exc))
+        # Instead of projecting the text embedding directly via UMAP, we find the closest
+        # existing document by cosine similarity in the high-dimensional CLIP space,
+        # and then return THAT document's already-calculated UMAP projection.
+        # This completely bridges the text-to-image modality gap!
+        cursor = embeddings_col.find({"projection": {"$exists": True}, "embedding": {"$exists": True}})
+        documents = await cursor.to_list(length=100000)
+        
+        if not documents:
+            raise HTTPException(status_code=404, detail="No projected documents found in DB.")
+            
+        import numpy as np
+        target_emb = np.array(embedding)
+        target_emb = target_emb / (np.linalg.norm(target_emb) + 1e-9)
+        
+        best_doc = None
+        best_sim = -float('inf')
+        
+        for doc in documents:
+            doc_emb = np.array(doc["embedding"])
+            doc_emb = doc_emb / (np.linalg.norm(doc_emb) + 1e-9)
+            sim = np.dot(target_emb, doc_emb)
+            if sim > best_sim:
+                best_sim = sim
+                best_doc = doc
+                
+        position = best_doc["projection"]
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Failed to project embedding: {exc}")
+        raise HTTPException(status_code=500, detail=f"Failed to find closest semantic match: {exc}")
 
     event = {
         "type": "redirect",

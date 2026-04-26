@@ -442,18 +442,27 @@
             const targetVec = new THREE.Vector3(targetPos.x, targetPos.y, targetPos.z);
 
             guideInterval = setInterval(() => {
-                const camMatrix = cameraObj.matrixWorld;
+                if (!cameraObj) return;
+
+                // Force matrix update to ensure we have the absolute latest orientation
+                cameraObj.updateMatrixWorld(true);
+
                 const camWorldPos = new THREE.Vector3();
                 cameraObj.getWorldPosition(camWorldPos);
 
-                const camRight = new THREE.Vector3().setFromMatrixColumn(camMatrix, 0);
-                const camUp = new THREE.Vector3().setFromMatrixColumn(camMatrix, 1);
-                const camForward = new THREE.Vector3().setFromMatrixColumn(camMatrix, 2).negate();
+                const camQuat = new THREE.Quaternion();
+                cameraObj.getWorldQuaternion(camQuat);
+
+                const camRight = new THREE.Vector3(1, 0, 0).applyQuaternion(camQuat).normalize();
+                const camUp = new THREE.Vector3(0, 1, 0).applyQuaternion(camQuat).normalize();
+                const camForward = new THREE.Vector3(0, 0, -1).applyQuaternion(camQuat).normalize();
 
                 const dirToTarget = targetVec.clone().sub(camWorldPos).normalize();
                 const dotRight = dirToTarget.dot(camRight);
                 const dotUp = dirToTarget.dot(camUp);
                 const dotForward = dirToTarget.dot(camForward);
+
+                console.log(`[DEBUG Guide] Tgt: ${targetVec.x.toFixed(1)}, ${targetVec.y.toFixed(1)}, ${targetVec.z.toFixed(1)} | DotF: ${dotForward.toFixed(2)} DotR: ${dotRight.toFixed(2)} DotU: ${dotUp.toFixed(2)}`);
 
                 Object.values(arrows).forEach(el => el.setAttribute('visible', 'false'));
 
