@@ -129,16 +129,32 @@
                 material="color: #00FFFF; shader: flat; transparent: true" position="-0.32 0.25 -1" rotation="0 0 45"
                 visible="false"
                 animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
+            
+            <!-- HUD container fixed to the user's view -->
+            <a-entity id="hud-container"></a-entity>
         </a-camera>
 
         <a-entity id="gallery-container"></a-entity>
-
-        <!-- Flight results window container -->
-        <a-entity id="flight-results-container"></a-entity>
     </a-scene>
 
     <script>
         // ── CONFIG ──────────────────────────────────────────────────────────────────
+        // Custom component to force UI to render strictly on top of EVERYTHING
+        AFRAME.registerComponent('render-top', {
+            init: function () {
+                const apply = () => {
+                    const mesh = this.el.getObject3D('mesh');
+                    if (mesh) {
+                        mesh.renderOrder = 9999;
+                        mesh.material.depthTest = false;
+                        mesh.material.depthWrite = false;
+                    }
+                };
+                this.el.addEventListener('loaded', apply);
+                apply();
+            }
+        });
+
         // Change this if your backend runs on a different host/port
         const BACKEND = 'https://platter-wackiness-swiftly.ngrok-free.dev';
 
@@ -169,7 +185,6 @@
         sceneEl.prepend(assetsEl);
 
         const galleryEl = document.getElementById('gallery-container');
-        const flightResultsEl = document.getElementById('flight-results-container');
         const selectedPhotos = [];
 
         // ── Starfield ──────────────────────────────────────────────────────────────
@@ -189,171 +204,6 @@
             sceneEl.appendChild(sky);
         }
         createStarrySkybox();
-
-        // ── Flight Results Display ─────────────────────────────────────────────────
-        function createFlightResultsWindow(flightData) {
-            // Clear any existing flight window
-            flightResultsEl.innerHTML = '';
-
-            // Get camera position and rotation to place window in front
-            const cameraEl = document.querySelector('a-camera');
-            const cameraObj = cameraEl.getObject3D('camera');
-            const cameraPos = new THREE.Vector3();
-            cameraObj.getWorldPosition(cameraPos);
-
-            // Get camera forward direction
-            const cameraQuat = new THREE.Quaternion();
-            cameraObj.getWorldQuaternion(cameraQuat);
-            const forward = new THREE.Vector3(0, 0, -1);
-            forward.applyQuaternion(cameraQuat);
-
-            // Place window 2 units in front of camera
-            const windowPos = cameraPos.clone().add(forward.multiplyScalar(2));
-
-            // Create canvas for the flight results
-            const canvas = document.createElement('canvas');
-            canvas.width = 1200;
-            canvas.height = 900;
-            const ctx = canvas.getContext('2d');
-
-            // Skyscanner blue color scheme
-            const skyBlue = '#0770E3';
-            const lightBlue = '#EBF3FF';
-            const darkText = '#161616';
-            const grayText = '#68737D';
-            const white = '#FFFFFF';
-
-            // Draw background with rounded corners effect
-            ctx.fillStyle = white;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Draw header
-            ctx.fillStyle = skyBlue;
-            ctx.fillRect(0, 0, canvas.width, 100);
-
-            ctx.fillStyle = white;
-            ctx.font = 'bold 40px Arial';
-            ctx.fillText('✈️ Flight Search Results', 40, 60);
-
-            // Draw route info
-            ctx.fillStyle = darkText;
-            ctx.font = 'bold 28px Arial';
-            ctx.fillText(`${flightData.origin[0]} → ${flightData.destination[0]}`, 40, 160);
-
-            // Column headers
-            const colX = [40, 420, 800];
-            const headerY = 220;
-            ctx.fillStyle = grayText;
-            ctx.font = 'bold 24px Arial';
-            ctx.fillText('Best', colX[0], headerY);
-            ctx.fillText('Cheapest', colX[1], headerY);
-            ctx.fillText('Fastest', colX[2], headerY);
-
-            // Draw each option card
-            const cardY = 260;
-            const cardHeight = 280;
-            const cardWidth = 340;
-
-            for (let i = 0; i < 3; i++) {
-                const x = colX[i];
-                const y = cardY;
-
-                // Card background
-                ctx.fillStyle = lightBlue;
-                ctx.fillRect(x, y, cardWidth, cardHeight);
-
-                // Border
-                ctx.strokeStyle = skyBlue;
-                ctx.lineWidth = 2;
-                ctx.strokeRect(x, y, cardWidth, cardHeight);
-
-                // Price (large)
-                ctx.fillStyle = skyBlue;
-                ctx.font = 'bold 36px Arial';
-                ctx.fillText(`€${flightData.price[i]}`, x + 20, y + 50);
-
-                // Outbound flight
-                ctx.fillStyle = darkText;
-                ctx.font = 'bold 20px Arial';
-                ctx.fillText('Outbound', x + 20, y + 90);
-
-                ctx.fillStyle = grayText;
-                ctx.font = '18px Arial';
-                const stops0 = flightData.stops[i];
-                const stopsText0 = stops0 === 0 ? 'Direct' : `${stops0} stop${stops0 > 1 ? 's' : ''}`;
-                ctx.fillText(`${flightData.time_go[i]} - ${stopsText0}`, x + 20, y + 115);
-
-                // Flight times for outbound
-                if (flightData.time_go_1[i]) {
-                    ctx.font = '16px Arial';
-                    ctx.fillText(`Dep: ${flightData.time_go_1[i]}`, x + 20, y + 140);
-                }
-                if (flightData.time_go_2[i]) {
-                    ctx.fillText(`Arr: ${flightData.time_go_2[i]}`, x + 20, y + 165);
-                }
-
-                // Return flight
-                ctx.fillStyle = darkText;
-                ctx.font = 'bold 20px Arial';
-                ctx.fillText('Return', x + 20, y + 200);
-
-                ctx.fillStyle = grayText;
-                ctx.font = '18px Arial';
-                ctx.fillText(`${flightData.time_return[i]}`, x + 20, y + 225);
-
-                // Flight times for return
-                if (flightData.time_return_1[i]) {
-                    ctx.font = '16px Arial';
-                    ctx.fillText(`Dep: ${flightData.time_return_1[i]}`, x + 20, y + 250);
-                }
-                if (flightData.time_return_2[i]) {
-                    ctx.fillText(`Arr: ${flightData.time_return_2[i]}`, x + 20, y + 275);
-                }
-            }
-
-            // Close button area
-            const closeY = 580;
-            ctx.fillStyle = '#E0E0E0';
-            ctx.fillRect(canvas.width - 180, closeY, 140, 50);
-            ctx.fillStyle = darkText;
-            ctx.font = 'bold 22px Arial';
-            ctx.fillText('✕ Close', canvas.width - 165, closeY + 33);
-
-            // Create texture from canvas
-            const texture = new THREE.CanvasTexture(canvas);
-            texture.needsUpdate = true;
-
-            // Create plane entity
-            const plane = document.createElement('a-plane');
-            plane.setAttribute('width', '2.4');
-            plane.setAttribute('height', '1.8');
-            plane.setAttribute('position', `${windowPos.x} ${windowPos.y} ${windowPos.z}`);
-
-            // Make plane face the camera
-            const euler = new THREE.Euler().setFromQuaternion(cameraQuat);
-            plane.setAttribute('rotation', `${THREE.MathUtils.radToDeg(euler.x)} ${THREE.MathUtils.radToDeg(euler.y)} ${THREE.MathUtils.radToDeg(euler.z)}`);
-
-            plane.setAttribute('material', `src: ${canvas.toDataURL()}; shader: flat; transparent: false`);
-            plane.classList.add('interactive');
-            plane.setAttribute('id', 'flight-window');
-
-            // Click handler for close button
-            plane.addEventListener('click', (evt) => {
-                // Check if click was in close button area (approximate)
-                const intersection = evt.detail.intersection;
-                if (intersection) {
-                    const uv = intersection.uv;
-                    // Close button is in bottom-right: x > 0.85, y < 0.15 (in UV space, y is flipped)
-                    if (uv.x > 0.85 && uv.y > 0.85) {
-                        console.log('Closing flight results window');
-                        flightResultsEl.innerHTML = '';
-                    }
-                }
-            });
-
-            flightResultsEl.appendChild(plane);
-            console.log('Flight results window created at position:', windowPos);
-        }
 
         // ── Main data fetch ───────────────────────────────────────────────────────
         async function loadGallery() {
@@ -388,89 +238,87 @@
                 }
 
                 // 3. Compute bounding box of UMAP projections to normalise scale
-                let minX = Infinity, maxX = -Infinity;
-                let minY = Infinity, maxY = -Infinity;
-                let minZ = Infinity, maxZ = -Infinity;
+                const xs = coordData.map(d => d.projection[0]);
+                const ys = coordData.map(d => d.projection[1]);
+                const zs = coordData.map(d => d.projection[2]);
+                const maxRange = Math.max(
+                    Math.max(...xs) - Math.min(...xs),
+                    Math.max(...ys) - Math.min(...ys),
+                    Math.max(...zs) - Math.min(...zs),
+                    1  // avoid division by zero
+                );
+                window.globalScale = (UMAP_SCALE * 2) / maxRange;  // maps to ~[-UMAP_SCALE, +UMAP_SCALE]
+                window.globalCx = (Math.max(...xs) + Math.min(...xs)) / 2;
+                window.globalCy = (Math.max(...ys) + Math.min(...ys)) / 2;
+                window.globalCz = (Math.max(...zs) + Math.min(...zs)) / 2;
 
-                for (const item of coordData) {
-                    const [x, y, z] = item.projection;
-                    if (x < minX) minX = x; if (x > maxX) maxX = x;
-                    if (y < minY) minY = y; if (y > maxY) maxY = y;
-                    if (z < minZ) minZ = z; if (z > maxZ) maxZ = z;
-                }
+                // 4. Build A-Frame entities
+                setProgress(80, `Building ${coordData.length} photo entities…`);
+                coordData.forEach((doc, index) => {
+                    const [ux, uy, uz] = doc.projection;
+                    const pos = {
+                        x: (ux - window.globalCx) * window.globalScale,
+                        y: (uy - window.globalCy) * window.globalScale,
+                        z: (uz - window.globalCz) * window.globalScale,
+                    };
 
-                // Centre of the UMAP space
-                const cx = (minX + maxX) / 2;
-                const cy = (minY + maxY) / 2;
-                const cz = (minZ + maxZ) / 2;
+                    // Depth from origin → opacity (closer = more opaque)
+                    const dist = Math.sqrt(pos.x ** 2 + pos.y ** 2 + pos.z ** 2);
+                    const maxDist = UMAP_SCALE * Math.sqrt(3);
+                    const baseOpacity = Math.max(0.35, 1.0 - (dist / maxDist) * 0.65);
 
-                // Range
-                const rangeX = maxX - minX || 1;
-                const rangeY = maxY - minY || 1;
-                const rangeZ = maxZ - minZ || 1;
-                const maxRange = Math.max(rangeX, rangeY, rangeZ);
+                    const imgSrc = window.globalImgMap[doc.id] || null;
+                    createPhotoEntity(pos, baseOpacity, index, doc.id, doc.filename, imgSrc);
+                });
 
-                // We'll scale so that the max dimension spans ~10 units in VR
-                const scale = (10 / maxRange) * UMAP_SCALE;
+                setProgress(100, 'Ready!');
+                setTimeout(() => { loadingOverlay.style.display = 'none'; }, 700);
 
-                window.globalCx = cx;
-                window.globalCy = cy;
-                window.globalCz = cz;
-                window.globalScale = scale;
-
-                console.log(`UMAP bounding box: x=[${minX}, ${maxX}], y=[${minY}, ${maxY}], z=[${minZ}, ${maxZ}]`);
-                console.log(`Centre: (${cx}, ${cy}, ${cz}), scale factor: ${scale}`);
-
-                // 4. Render each photo in 3D
-                setProgress(80, 'Placing images in VR space…');
-                for (const item of coordData) {
-                    const [ux, uy, uz] = item.projection;
-                    const vrX = (ux - cx) * scale;
-                    const vrY = (uy - cy) * scale;
-                    const vrZ = (uz - cz) * scale;
-                    createPhotoEntity(item.id, item.filename, vrX, vrY, vrZ);
-                }
-
-                setProgress(100, 'Ready! Look around to explore.');
-                setTimeout(() => { loadingOverlay.style.display = 'none'; }, 800);
+                // Start listening to the AI Agent
+                pollEvents();
 
             } catch (err) {
-                console.error('Gallery load error:', err);
-                showError(`Failed to load gallery: ${err.message}`);
-                setProgress(100, 'Error loading data');
+                console.error('Gallery load failed:', err);
+                setProgress(100, 'Failed to load.');
+                showError(`Backend error: ${err.message}. Is the server running at ${BACKEND}?`);
                 setTimeout(() => { loadingOverlay.style.display = 'none'; }, 2000);
             }
         }
 
-        function createPhotoEntity(docId, filename, x, y, z) {
-            const dataURI = window.globalImgMap[docId];
-            if (!dataURI) {
-                console.warn(`No image data for id=${docId}, skipping`);
-                return;
-            }
-
+        // ── Photo entity factory ──────────────────────────────────────────────────
+        function createPhotoEntity(pos, baseOpacity, index, docId, filename, imgSrc) {
             const wrapper = document.createElement('a-entity');
-            wrapper.setAttribute('position', `${x} ${y} ${z}`);
+            wrapper.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+            wrapper.setAttribute('look-at', '[camera]');
             wrapper.classList.add('interactive');
+            wrapper.dataset.docId = docId;
 
             // Frame
             const frame = document.createElement('a-plane');
-            const imgSize = 0.8;
-            const frameSize = imgSize + 0.04;
-            frame.setAttribute('width', frameSize);
-            frame.setAttribute('height', frameSize);
-            frame.setAttribute('position', '0 0 -0.005');
-            const baseOpacity = 0.6;
-            frame.setAttribute('material', `color: #ffffff; opacity: ${baseOpacity * 0.2}; shader: flat`);
-            frame.setAttribute('look-at', '[camera]');
+            frame.setAttribute('width', '1.68');
+            frame.setAttribute('height', '1.08');
+            frame.setAttribute('material', `shader: flat; color: #ffffff; transparent: true; opacity: ${baseOpacity * 0.2}`);
 
             // Image
-            const img = document.createElement('a-plane');
-            img.setAttribute('width', imgSize);
-            img.setAttribute('height', imgSize);
-            img.setAttribute('position', '0 0 0');
-            img.setAttribute('material', `src: ${dataURI}; shader: flat; transparent: true; opacity: ${baseOpacity}`);
-            img.setAttribute('look-at', '[camera]');
+            const img = document.createElement('a-image');
+            img.setAttribute('width', '1.6');
+            img.setAttribute('height', '1.0');
+            img.setAttribute('position', '0 0 0.01');
+            img.setAttribute('opacity', baseOpacity);
+
+            if (imgSrc) {
+                // Register in <a-assets> for caching
+                const imgId = `img-${index}`;
+                const nativeImg = document.createElement('img');
+                nativeImg.crossOrigin = 'anonymous';
+                nativeImg.id = imgId;
+                nativeImg.src = imgSrc;
+                assetsEl.appendChild(nativeImg);
+                img.setAttribute('src', `#${imgId}`);
+            } else {
+                // Fallback: placeholder colour
+                img.setAttribute('material', `color: #0a2035; shader: flat; opacity: ${baseOpacity}`);
+            }
 
             // Hover / select interactions
             wrapper.dataset.selected = 'false';
@@ -591,6 +439,232 @@
             }, 100);
         }
 
+        function createFlightResultsWindow(flightData) {
+            const hudContainer = document.getElementById('hud-container');
+            hudContainer.innerHTML = ''; // clear existing
+            
+            // 1. Create a dark backdrop to hide the gallery
+            const backdrop = document.createElement('a-plane');
+            backdrop.setAttribute('width', '100'); // make it extremely large to cover all peripheral vision
+            backdrop.setAttribute('height', '100');
+            backdrop.setAttribute('position', '0 0 -1.5'); // comfortable distance
+            backdrop.setAttribute('material', 'color: #020813; shader: flat; opacity: 0.0; transparent: true');
+            backdrop.setAttribute('render-top', ''); // force it to render over all photos
+            // Fade-in animation for backdrop
+            backdrop.setAttribute('animation', 'property: material.opacity; to: 0.85; dur: 400; easing: easeOutQuad');
+            
+            // Allow clicking the backdrop to close it too
+            backdrop.classList.add('interactive');
+            backdrop.addEventListener('click', () => {
+                // Fade out before removing
+                backdrop.setAttribute('animation', 'property: material.opacity; to: 0.0; dur: 200; easing: easeOutQuad');
+                if (plane) plane.setAttribute('animation__scale', 'property: scale; to: 0.01 0.01 0.01; dur: 200; easing: easeInQuad');
+                setTimeout(() => { hudContainer.innerHTML = ''; }, 200);
+            });
+            hudContainer.appendChild(backdrop);
+
+            // 2. Create the canvas for the flight results
+            const canvas = document.createElement('canvas');
+            canvas.width = 1600;
+            canvas.height = 1200;
+            const ctx = canvas.getContext('2d');
+
+            const bgLight = '#F1F2F8';
+            const skyBlue = '#00246B';
+            const accent = '#0770E3';
+            const white = '#FFFFFF';
+            const textDark = '#111236';
+            const textGray = '#68737D';
+            
+            // Helper for rounded rect
+            function roundRect(ctx, x, y, width, height, radius) {
+                ctx.beginPath();
+                ctx.moveTo(x + radius, y);
+                ctx.lineTo(x + width - radius, y);
+                ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+                ctx.lineTo(x + width, y + height - radius);
+                ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                ctx.lineTo(x + radius, y + height);
+                ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+                ctx.lineTo(x, y + radius);
+                ctx.quadraticCurveTo(x, y, x + radius, y);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            // Fill background
+            ctx.fillStyle = bgLight;
+            roundRect(ctx, 0, 0, canvas.width, canvas.height, 40);
+
+            // Header banner
+            ctx.fillStyle = skyBlue;
+            ctx.beginPath();
+            ctx.moveTo(40, 0); ctx.lineTo(canvas.width - 40, 0);
+            ctx.quadraticCurveTo(canvas.width, 0, canvas.width, 40);
+            ctx.lineTo(canvas.width, 160);
+            ctx.lineTo(0, 160);
+            ctx.lineTo(0, 40);
+            ctx.quadraticCurveTo(0, 0, 40, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            // Header Text
+            ctx.fillStyle = white;
+            ctx.font = 'bold 52px -apple-system, system-ui, sans-serif';
+            ctx.fillText(`✈️ ${flightData.origin[0]} to ${flightData.destination[0]}`, 80, 80);
+            ctx.font = '32px -apple-system, system-ui, sans-serif';
+            ctx.fillStyle = '#B0C4DE';
+            ctx.fillText(`1 adult • Economy • Round trip`, 80, 130);
+
+            // Close button (top right)
+            ctx.fillStyle = 'rgba(255,255,255,0.2)';
+            roundRect(ctx, canvas.width - 220, 50, 160, 60, 30);
+            ctx.fillStyle = white;
+            ctx.font = 'bold 28px -apple-system, system-ui, sans-serif';
+            ctx.fillText('✕ Close', canvas.width - 192, 90);
+
+            // Cards
+            const startY = 200;
+            const cardH = 300;
+            const gap = 30;
+            
+            const labels = ['✨ Best', '💰 Cheapest', '⚡️ Fastest'];
+
+            for (let i = 0; i < 3; i++) {
+                const y = startY + i * (cardH + gap);
+                
+                // Draw Card
+                ctx.fillStyle = white;
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.05)';
+                ctx.shadowBlur = 20;
+                ctx.shadowOffsetY = 8;
+                roundRect(ctx, 60, y, canvas.width - 120, cardH, 20);
+                ctx.shadowColor = 'transparent';
+                
+                // Badge
+                ctx.fillStyle = '#E2E8F0';
+                roundRect(ctx, 60, y, 220, 48, 20);
+                ctx.fillRect(60, y+24, 220, 24); // square bottom corners
+                ctx.fillStyle = textDark;
+                ctx.font = 'bold 22px -apple-system, system-ui, sans-serif';
+                ctx.fillText(labels[i], 90, y + 32);
+
+                // --- Outbound ---
+                let rowY = y + 100;
+                // Airline logo circle
+                ctx.fillStyle = '#F1F2F8';
+                ctx.beginPath(); ctx.arc(120, rowY - 10, 35, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = accent; ctx.font = '30px Arial'; ctx.fillText('✈️', 105, rowY);
+
+                // Times
+                ctx.fillStyle = textDark;
+                ctx.font = 'bold 36px -apple-system, system-ui, sans-serif';
+                ctx.fillText(`${flightData.time_go_1[i]}  –  ${flightData.time_go_2[i]}`, 190, rowY);
+                // Airline
+                ctx.fillStyle = textGray;
+                ctx.font = '24px -apple-system, system-ui, sans-serif';
+                ctx.fillText(`Vueling / Iberia`, 190, rowY + 35);
+                
+                // Stops
+                const stopsGo = flightData.stops[i];
+                ctx.fillStyle = textGray;
+                ctx.textAlign = 'right';
+                ctx.fillText(`${flightData.time_go[i]}`, 720, rowY - 10);
+                ctx.fillStyle = stopsGo === 0 ? '#00A698' : '#D97757';
+                ctx.font = 'bold 24px -apple-system, system-ui, sans-serif';
+                ctx.fillText(stopsGo === 0 ? 'Direct' : `${stopsGo} stop${stopsGo > 1 ? 's' : ''}`, 720, rowY + 25);
+                ctx.textAlign = 'left';
+
+                // Connecting line
+                ctx.strokeStyle = '#CBD5E1';
+                ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(460, rowY - 15); ctx.lineTo(620, rowY - 15); ctx.stroke();
+                
+                // --- Return ---
+                rowY = y + 210;
+                // Airline logo circle
+                ctx.fillStyle = '#F1F2F8';
+                ctx.beginPath(); ctx.arc(120, rowY - 10, 35, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = accent; ctx.font = '30px Arial'; ctx.fillText('✈️', 105, rowY);
+
+                // Times
+                ctx.fillStyle = textDark;
+                ctx.font = 'bold 36px -apple-system, system-ui, sans-serif';
+                ctx.fillText(`${flightData.time_return_1[i]}  –  ${flightData.time_return_2[i]}`, 190, rowY);
+                // Airline
+                ctx.fillStyle = textGray;
+                ctx.font = '24px -apple-system, system-ui, sans-serif';
+                ctx.fillText(`Vueling / Iberia`, 190, rowY + 35);
+                
+                // Stops
+                ctx.fillStyle = textGray;
+                ctx.textAlign = 'right';
+                ctx.fillText(`${flightData.time_return[i]}`, 720, rowY - 10);
+                ctx.fillStyle = stopsGo === 0 ? '#00A698' : '#D97757';
+                ctx.font = 'bold 24px -apple-system, system-ui, sans-serif';
+                ctx.fillText(stopsGo === 0 ? 'Direct' : `${stopsGo} stop${stopsGo > 1 ? 's' : ''}`, 720, rowY + 25);
+                ctx.textAlign = 'left';
+
+                // Connecting line
+                ctx.strokeStyle = '#CBD5E1';
+                ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(460, rowY - 15); ctx.lineTo(620, rowY - 15); ctx.stroke();
+
+                // --- Vertical Divider ---
+                ctx.strokeStyle = '#E2E8F0';
+                ctx.beginPath(); ctx.moveTo(1150, y + 40); ctx.lineTo(1150, y + 260); ctx.stroke();
+
+                // --- Price & Button (Right Side) ---
+                ctx.textAlign = 'right';
+                ctx.fillStyle = textDark;
+                ctx.font = 'bold 56px -apple-system, system-ui, sans-serif';
+                ctx.fillText(`€${flightData.price[i]}`, canvas.width - 120, y + 140);
+                ctx.fillStyle = textGray;
+                ctx.font = '22px -apple-system, system-ui, sans-serif';
+                ctx.fillText(`total`, canvas.width - 120, y + 175);
+                ctx.textAlign = 'left';
+
+                // Select button
+                ctx.fillStyle = accent;
+                roundRect(ctx, canvas.width - 340, y + 200, 220, 60, 30);
+                ctx.fillStyle = white;
+                ctx.font = 'bold 26px -apple-system, system-ui, sans-serif';
+                ctx.fillText('Select', canvas.width - 265, y + 240);
+            }
+
+            // Create plane entity for the canvas
+            const plane = document.createElement('a-plane');
+            plane.setAttribute('width', '2.0'); // comfortable viewing width
+            plane.setAttribute('height', '1.5'); // comfortable viewing height
+            plane.setAttribute('position', '0 0 -1.4');  // slightly in front of backdrop
+            plane.setAttribute('src', canvas.toDataURL());
+            plane.setAttribute('material', `shader: flat; transparent: true; opacity: 0.0`); // start invisible
+            plane.setAttribute('scale', '0.01 0.01 0.01'); // start tiny
+            
+            // Pop-in animation
+            plane.setAttribute('animation__scale', 'property: scale; to: 1 1 1; dur: 600; easing: easeOutElastic');
+            plane.setAttribute('animation__fade', 'property: material.opacity; to: 1.0; dur: 300; easing: easeOutQuad');
+            
+            plane.setAttribute('render-top', ''); // force it to render over the backdrop and photos
+            plane.classList.add('interactive');
+
+            plane.addEventListener('click', (evt) => {
+                const intersection = evt.detail.intersection;
+                if (intersection) {
+                    const uv = intersection.uv;
+                    // Close button logic top right
+                    if (uv.x > 0.8 && uv.y > 0.8) {
+                        backdrop.setAttribute('animation', 'property: material.opacity; to: 0.0; dur: 200; easing: easeOutQuad');
+                        plane.setAttribute('animation__scale', 'property: scale; to: 0.01 0.01 0.01; dur: 200; easing: easeInQuad');
+                        plane.setAttribute('animation__fade', 'property: material.opacity; to: 0.0; dur: 200; easing: easeInQuad');
+                        setTimeout(() => { hudContainer.innerHTML = ''; }, 200);
+                    }
+                }
+            });
+
+            hudContainer.appendChild(plane);
+        }
+
         // ── AI Agent Event Polling ────────────────────────────────────────────────
         async function pollEvents() {
             try {
@@ -599,8 +673,6 @@
                 });
                 if (res.ok) {
                     const data = await res.json();
-
-                    // Handle position guide events
                     if (data.event && data.event.position) {
                         const [ux, uy, uz] = data.event.position;
                         const pos = {
@@ -610,17 +682,12 @@
                         };
                         console.log(`Agent said: ${data.event.vibe}. Guiding to:`, pos);
                         guideToPoint(pos);
-                        showError(`Agent guiding you to: ${data.event.vibe}`);
-                    }
-
-                    // Handle flight search results events
-                    if (data.event && data.event.type === 'results') {
+                        showError(`Agent guiding you to: ${data.event.vibe}`); // Reusing errorBanner as a notification popup
+                    } else if (data.event && data.event.type === 'results') {
                         console.log('Received flight results:', data.event);
-
-                        // Extract flight data
                         const flightData = {
                             origin: data.event.origin,
-                            destination: data.event.destination,
+                            destination: data.event.flight_dest,
                             stops: data.event.stops,
                             time_go: data.event.time_go,
                             time_return: data.event.time_return,
@@ -630,8 +697,6 @@
                             time_return_1: data.event.time_return_1,
                             time_return_2: data.event.time_return_2
                         };
-
-                        // Display flight results window
                         createFlightResultsWindow(flightData);
                         showError('Flight results received! ✈️');
                     }
@@ -639,12 +704,13 @@
             } catch (e) {
                 console.error("Polling error:", e);
             }
-            setTimeout(pollEvents, 1000); // Poll every 1 second
+            setTimeout(pollEvents, 2000);
         }
 
         // ── Boot ──────────────────────────────────────────────────────────────────
-        loadGallery();
-        pollEvents();
+        loadGallery().then(() => {
+            pollEvents();
+        });
     </script>
 </body>
 
