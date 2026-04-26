@@ -129,7 +129,7 @@
                 material="color: #00FFFF; shader: flat; transparent: true" position="-0.32 0.25 -1" rotation="0 0 45"
                 visible="false"
                 animation="property: material.opacity; from: 0.1; to: 1.0; loop: true; dir: alternate; dur: 300"></a-entity>
-            
+
             <!-- HUD container fixed to the user's view -->
             <a-entity id="hud-container"></a-entity>
         </a-camera>
@@ -442,7 +442,7 @@
         function createFlightResultsWindow(flightData) {
             const hudContainer = document.getElementById('hud-container');
             hudContainer.innerHTML = ''; // clear existing
-            
+
             // 1. Create a dark backdrop to hide the gallery
             const backdrop = document.createElement('a-plane');
             backdrop.setAttribute('width', '100'); // make it extremely large to cover all peripheral vision
@@ -452,15 +452,10 @@
             backdrop.setAttribute('render-top', ''); // force it to render over all photos
             // Fade-in animation for backdrop
             backdrop.setAttribute('animation', 'property: material.opacity; to: 0.85; dur: 400; easing: easeOutQuad');
-            
+
             // Allow clicking the backdrop to close it too
             backdrop.classList.add('interactive');
-            backdrop.addEventListener('click', () => {
-                // Fade out before removing
-                backdrop.setAttribute('animation', 'property: material.opacity; to: 0.0; dur: 200; easing: easeOutQuad');
-                if (plane) plane.setAttribute('animation__scale', 'property: scale; to: 0.01 0.01 0.01; dur: 200; easing: easeInQuad');
-                setTimeout(() => { hudContainer.innerHTML = ''; }, 200);
-            });
+            // Click listener is attached at the end of the function
             hudContainer.appendChild(backdrop);
 
             // 2. Create the canvas for the flight results
@@ -475,7 +470,7 @@
             const white = '#FFFFFF';
             const textDark = '#111236';
             const textGray = '#68737D';
-            
+
             // Helper for rounded rect
             function roundRect(ctx, x, y, width, height, radius) {
                 ctx.beginPath();
@@ -527,12 +522,12 @@
             const startY = 200;
             const cardH = 300;
             const gap = 30;
-            
+
             const labels = ['✨ Best', '💰 Cheapest', '⚡️ Fastest'];
 
             for (let i = 0; i < 3; i++) {
                 const y = startY + i * (cardH + gap);
-                
+
                 // Draw Card
                 ctx.fillStyle = white;
                 ctx.shadowColor = 'rgba(0, 0, 0, 0.05)';
@@ -540,11 +535,11 @@
                 ctx.shadowOffsetY = 8;
                 roundRect(ctx, 60, y, canvas.width - 120, cardH, 20);
                 ctx.shadowColor = 'transparent';
-                
+
                 // Badge
                 ctx.fillStyle = '#E2E8F0';
                 roundRect(ctx, 60, y, 220, 48, 20);
-                ctx.fillRect(60, y+24, 220, 24); // square bottom corners
+                ctx.fillRect(60, y + 24, 220, 24); // square bottom corners
                 ctx.fillStyle = textDark;
                 ctx.font = 'bold 22px -apple-system, system-ui, sans-serif';
                 ctx.fillText(labels[i], 90, y + 32);
@@ -553,7 +548,7 @@
                 let rowY = y + 100;
                 // Airline logo circle
                 ctx.fillStyle = '#F1F2F8';
-                ctx.beginPath(); ctx.arc(120, rowY - 10, 35, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(120, rowY - 10, 35, 0, Math.PI * 2); ctx.fill();
                 ctx.fillStyle = accent; ctx.font = '30px Arial'; ctx.fillText('✈️', 105, rowY);
 
                 // Times
@@ -564,7 +559,7 @@
                 ctx.fillStyle = textGray;
                 ctx.font = '24px -apple-system, system-ui, sans-serif';
                 ctx.fillText(`Vueling / Iberia`, 190, rowY + 35);
-                
+
                 // Stops
                 const stopsGo = flightData.stops[i];
                 ctx.fillStyle = textGray;
@@ -579,12 +574,12 @@
                 ctx.strokeStyle = '#CBD5E1';
                 ctx.lineWidth = 3;
                 ctx.beginPath(); ctx.moveTo(460, rowY - 15); ctx.lineTo(620, rowY - 15); ctx.stroke();
-                
+
                 // --- Return ---
                 rowY = y + 210;
                 // Airline logo circle
                 ctx.fillStyle = '#F1F2F8';
-                ctx.beginPath(); ctx.arc(120, rowY - 10, 35, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(120, rowY - 10, 35, 0, Math.PI * 2); ctx.fill();
                 ctx.fillStyle = accent; ctx.font = '30px Arial'; ctx.fillText('✈️', 105, rowY);
 
                 // Times
@@ -595,7 +590,7 @@
                 ctx.fillStyle = textGray;
                 ctx.font = '24px -apple-system, system-ui, sans-serif';
                 ctx.fillText(`Vueling / Iberia`, 190, rowY + 35);
-                
+
                 // Stops
                 ctx.fillStyle = textGray;
                 ctx.textAlign = 'right';
@@ -634,19 +629,32 @@
 
             // Create plane entity for the canvas
             const plane = document.createElement('a-plane');
-            plane.setAttribute('width', '2.0'); // comfortable viewing width
-            plane.setAttribute('height', '1.5'); // comfortable viewing height
+            plane.setAttribute('width', '1.2'); // comfortable viewing width
+            plane.setAttribute('height', '0.9'); // comfortable viewing height
             plane.setAttribute('position', '0 0 -1.4');  // slightly in front of backdrop
             plane.setAttribute('src', canvas.toDataURL());
             plane.setAttribute('material', `shader: flat; transparent: true; opacity: 0.0`); // start invisible
             plane.setAttribute('scale', '0.01 0.01 0.01'); // start tiny
-            
+
             // Pop-in animation
             plane.setAttribute('animation__scale', 'property: scale; to: 1 1 1; dur: 600; easing: easeOutElastic');
             plane.setAttribute('animation__fade', 'property: material.opacity; to: 1.0; dur: 300; easing: easeOutQuad');
-            
+
             plane.setAttribute('render-top', ''); // force it to render over the backdrop and photos
             plane.classList.add('interactive');
+
+            // Function to gracefully close the UI
+            let isClosing = false;
+            const closeWindow = () => {
+                if (isClosing) return;
+                isClosing = true;
+                backdrop.setAttribute('animation', 'property: material.opacity; to: 0.0; dur: 200; easing: easeOutQuad');
+                plane.setAttribute('animation__scale', 'property: scale; to: 0.01 0.01 0.01; dur: 200; easing: easeInQuad');
+                plane.setAttribute('animation__fade', 'property: material.opacity; to: 0.0; dur: 200; easing: easeInQuad');
+                setTimeout(() => { hudContainer.innerHTML = ''; }, 200);
+            };
+
+            backdrop.addEventListener('click', closeWindow);
 
             plane.addEventListener('click', (evt) => {
                 const intersection = evt.detail.intersection;
@@ -654,13 +662,15 @@
                     const uv = intersection.uv;
                     // Close button logic top right
                     if (uv.x > 0.8 && uv.y > 0.8) {
-                        backdrop.setAttribute('animation', 'property: material.opacity; to: 0.0; dur: 200; easing: easeOutQuad');
-                        plane.setAttribute('animation__scale', 'property: scale; to: 0.01 0.01 0.01; dur: 200; easing: easeInQuad');
-                        plane.setAttribute('animation__fade', 'property: material.opacity; to: 0.0; dur: 200; easing: easeInQuad');
-                        setTimeout(() => { hudContainer.innerHTML = ''; }, 200);
+                        closeWindow();
                     }
                 }
             });
+
+            // Auto-close after 5 seconds
+            setTimeout(() => {
+                closeWindow();
+            }, 5000);
 
             hudContainer.appendChild(plane);
         }
