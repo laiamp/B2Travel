@@ -63,15 +63,15 @@ async def post_destination_event(flight: FlightRecommendation) -> dict:
     """
     Store a single flight recommendation as a 'destination' event for the frontend.
     """
-    flight_dict = flight.model_dump(exclude_none=True)
-    flight_dest = flight_dict.pop("destination", "Unknown")
-    
+    flight_data = flight.model_dump(exclude_none=True)
+    # Rename "destination" (IATA) to "iata" so it doesn't clobber the routing field
+    flight_data["iata"] = flight_data.pop("destination", None)
+
     event = {
         "type": "destination",
         "destination": "front",
         "received": False,
-        "flight_dest": flight_dest,
-        **flight_dict,
+        **flight_data,
     }
 
     try:

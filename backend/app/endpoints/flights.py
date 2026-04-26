@@ -9,7 +9,7 @@ from app.config import settings
 
 import requests
 from fastapi import  HTTPException, status, APIRouter
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter(prefix="/flights")
 
@@ -111,6 +111,14 @@ class BatchFlightSearchRequest(BaseModel):
     month: int = Field(..., ge=1, le=12)
     day: int = Field(..., ge=1, le=31)
     adults: int = Field(1, ge=1, le=9)
+
+    @field_validator('destinations_iata', mode='before')
+    @classmethod
+    def coerce_to_list(cls, v):
+        """Accept a single IATA string and wrap it into a list."""
+        if isinstance(v, str):
+            return [v]
+        return v
 
 
 # Endpoints
