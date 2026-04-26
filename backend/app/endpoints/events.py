@@ -39,3 +39,42 @@ async def get_front_event() -> dict:
 @router.get("/agent")
 async def get_agent_event() -> dict:
 	return await _get_latest_unreceived("agent")
+
+
+from typing import Any, List, Optional
+from pydantic import BaseModel
+
+
+class FlightRecommendation(BaseModel):
+    destination: str
+    id: Optional[str] = None
+    price: Optional[float] = None
+    currency: Optional[str] = None
+    stops: Optional[int] = None
+    duration_mins: Optional[int] = None
+    departure: Optional[str] = None
+    arrival: Optional[str] = None
+    booking_link: Optional[str] = None
+    error: Optional[str] = None
+
+
+@router.post("/destination")
+async def post_destination_event(flight: FlightRecommendation) -> dict:
+    """
+    Store a single flight recommendation as a 'destination' event for the frontend.
+    """
+    event = {
+        "type": "destination",
+        "destination": "front",
+        "received": False,
+        **flight.model_dump(exclude_none=True),
+    }
+
+    try:
+        result = await events_col.insert_one(event)
+    except PyMongoError as exc:
+        raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}")
+
+    return {"event_id": str(result.inserted_id)}
+
+

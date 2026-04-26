@@ -8,11 +8,6 @@ from elevenlabs.client import ElevenLabs
 from elevenlabs.conversational_ai.conversation import Conversation, ClientTools
 from elevenlabs.conversational_ai.default_audio_interface import DefaultAudioInterface
 
-
-def log_message(parameters):
-    message = parameters.get("message")
-    print("Puta", message)
-
 def _run_coro_sync(coro):
     """Run an async coroutine from sync tool callbacks safely."""
     result: dict[str, str] = {}
@@ -122,11 +117,34 @@ def get_flights(parameters):
         logger.error(f"[Client Tool] {error_msg}")
         return error_msg
 
+
+async def _send_destination_async(flight: dict) -> str:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post("http://localhost:8000/events/destination", json=flight)
+        response.raise_for_status()
+        return str(response.json())
+
+
+def send_destination(parameters):
+    """Send a single flight recommendation to the frontend via /events/destination."""
+    flight = parameters.get("flight")
+    if not flight:
+        return "Error: no flight data provided"
+    logger.info(f"[Client Tool] Sending destination event for: {flight.get('destination', '?')}")
+    try:
+        data = _run_coro_sync(_send_destination_async(flight))
+        logger.info(f"[Client Tool] Destination event sent: {data}")
+        return data
+    except Exception as e:
+        error_msg = f"Error sending destination: {e}"
+        logger.error(f"[Client Tool] {error_msg}")
+        return error_msg
+
 client_tools = ClientTools()
-client_tools.register("logMessage", log_message)
 client_tools.register("handleVibe", handle_vibe)
 client_tools.register("getRecommendations", get_recommendations)
-client_tools.register("getFlights", get_flights)    
+client_tools.register("getFlights", get_flights)
+client_tools.register("sendDestination", send_destination)
 client_tools.register("checkHealth", check_health)
 
 # Initialize the client
