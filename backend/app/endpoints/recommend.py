@@ -67,8 +67,9 @@ Return valid JSON only (no markdown, no explanation) in this format:
 """
 
 _DEFAULT_RECOMMENDATION = (
-    "Your images suggest a lively, sun-soaked vibe with a focus on beach life, nightlife, and social energy. "
-    "Great city matches are Ibiza, Miami, Mykonos, Rio de Janeiro, and Tulum."
+    "Your images suggest a nature-focused, adventurous vibe with mountains, forests, and outdoor exploration. "
+    "Great destination matches include Switzerland (Zurich), Canada (Vancouver), New Zealand (Auckland), "
+    "Japan (Tokyo), and the United States (Denver)."
 )
 
 class RecommendationService:
