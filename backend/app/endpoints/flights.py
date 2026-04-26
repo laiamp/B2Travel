@@ -18,6 +18,8 @@ DEFAULT_CURRENCY = "EUR"
 DEFAULT_MARKET = "ES"
 DEFAULT_LOCALE = "es-ES"
 DEFAULT_CABIN_CLASS = "CABIN_CLASS_ECONOMY"
+DEFAULT_YEAR = 2026
+
 
 # Classes
 @dataclass
@@ -106,7 +108,6 @@ class FlightSearchRequest(BaseModel):
 
 class BatchFlightSearchRequest(BaseModel):
     destinations_iata: List[str] = Field(..., description="List of destination IATA codes (e.g., ['SIN', 'LHR', 'JFK'])")
-    year: int = Field(..., ge=2024, le=2030)
     month: int = Field(..., ge=1, le=12)
     day: int = Field(..., ge=1, le=31)
     adults: int = Field(1, ge=1, le=9)
@@ -160,7 +161,7 @@ def search_flights_batch(request: BatchFlightSearchRequest):
             info = SkyscannerInfo(
                 origin_iata=DEFAULT_ORIGIN_IATA,
                 destination_iata=dest,
-                year=request.year,
+                year=DEFAULT_YEAR,
                 month=request.month,
                 day=request.day,
                 currency=DEFAULT_CURRENCY,
@@ -185,3 +186,4 @@ def search_flights_batch(request: BatchFlightSearchRequest):
                 "cheapest_flight": None
             })
     return results
+
