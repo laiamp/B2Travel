@@ -54,3 +54,28 @@ async def retrieve_texts():
 		})
 
 	return results
+
+
+@router.get("/songs")
+async def retrieve_songs():
+	try:
+		cursor = embeddings_col.find({"content_type": "audio/mpeg"})
+		documents = await cursor.to_list(length=1000)
+	except PyMongoError as exc:
+		raise HTTPException(status_code=503, detail=f"Database unavailable: {exc}")
+
+	results = []
+	for doc in documents:
+		results.append({
+			"id": str(doc["_id"]),
+			"title": doc.get("title"),
+			"channel": doc.get("channel"),
+			"videoId": doc.get("videoId"),
+			"description": doc.get("description"),
+			"content_type": doc.get("content_type"),
+			"size_bytes": doc.get("size_bytes"),
+			"model": doc.get("model"),
+			"embedding": doc.get("embedding")
+		})
+
+	return results

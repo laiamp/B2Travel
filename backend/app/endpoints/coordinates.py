@@ -55,10 +55,10 @@ async def get_coordinates():
     and returns all documents with their computed 3D projections.
     """
     try:
-        # Fetch only image records that have an embedding
+        # Fetch all records that have an embedding (images, songs, text)
         cursor = embeddings_col.find(
-            {"embedding": {"$exists": True}, "content_type": {"$regex": "^image/"}},
-            {"embedding": 1, "filename": 1, "content_type": 1, "text": 1, "model": 1, "image": 1}
+            {"embedding": {"$exists": True}},
+            {"embedding": 1, "filename": 1, "content_type": 1, "text": 1, "model": 1, "image": 1, "title": 1, "videoId": 1}
         )
         documents = await cursor.to_list(length=100000)
     except PyMongoError as exc:
@@ -101,6 +101,8 @@ async def get_coordinates():
             "filename": doc.get("filename"),
             "content_type": doc.get("content_type"),
             "text": doc.get("text"),
+            "title": doc.get("title"),
+            "videoId": doc.get("videoId"),
             "model": doc.get("model"),
             "image_base64": image_data,
         })

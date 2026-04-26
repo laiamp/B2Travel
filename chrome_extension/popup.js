@@ -9,7 +9,8 @@ const LOCAL_KEY = "travelLocalItems"; // only pages + songs
 let currentTab = "pages";
 let localItems = [];   // pages + songs (chrome.storage.local)
 let apiPhotos = [];   // loaded from GET /retrieve/images
-let apiTexts = [];   // loaded from GET /retrieve/texts
+let apiTexts = [];    // loaded from GET /retrieve/texts
+let apiSongs = [];    // loaded from GET /retrieve/songs
 
 // ---- DOM refs ----
 const itemCountEl = document.getElementById("itemCount");
@@ -37,7 +38,7 @@ function hideLoader() { globalLoader.style.display = "none"; }
 
 // ---- Init ----
 document.addEventListener("DOMContentLoaded", async () => {
-    await Promise.all([loadLocalItems(), loadApiPhotos(), loadApiTexts()]);
+    await Promise.all([loadLocalItems(), loadApiPhotos(), loadApiTexts(), loadApiSongs()]);
     renderAll();
     setupTabs();
     setupSaveHandlers();
@@ -109,6 +110,26 @@ async function postImage(fileOrBlob, filename) {
     return res.json(); // { id, filename, embedding_dim, collection }
 }
 
+async function loadApiSongs() {
+    try {
+        const res = await fetch(`${API_BASE}/retrieve/songs`);
+        if (res.ok) apiSongs = await res.json();
+        else console.warn("[Travel Saver] Could not load songs from API:", res.status);
+    } catch (e) {
+        console.warn("[Travel Saver] Backend unreachable (songs):", e.message);
+    }
+}
+
+async function postSong(title, channel, videoId) {
+    const form = new FormData();
+    form.append("title", title);
+    form.append("channel", channel);
+    form.append("videoId", videoId);
+    const res = await fetch(`${API_BASE}/ingest/song`, { method: "POST", body: form });
+    if (!res.ok) throw new Error(`Ingest song failed: ${res.status}`);
+    return res.json(); // { id, title, description, embedding_dim, collection }
+}
+
 async function deleteApiItem(collection, id) {
     const res = await fetch(`${API_BASE}/delete/${collection}/${encodeURIComponent(id)}`, {
         method: "DELETE",
@@ -128,7 +149,7 @@ async function deleteApiItem(collection, id) {
 // SHARED COUNT
 // ============================================================
 function updateCount() {
-    const total = localItems.length + apiPhotos.length + apiTexts.length;
+    const total = localItems.length + apiPhotos.length + apiTexts.length + apiSongs.length;
     itemCountEl.textContent = `${total} saved`;
 }
 
@@ -251,20 +272,38 @@ function setupSaveHandlers() {
     btnSaveSong.addEventListener("click", async () => {
         const videoId = btnSaveSong.dataset.videoId;
         if (!videoId) { showToast("⚠️ No YouTube video detected"); return; }
-        const item = {
-            id: Date.now().toString(),
-            type: "song",
-            videoId,
-            title: btnSaveSong.dataset.title.replace(/ - YouTube$/, ""),
-            channel: btnSaveSong.dataset.channel,
-            thumbnail: ytThumbnail(videoId),
-            url: btnSaveSong.dataset.url,
-            date: new Date().toISOString()
-        };
-        await addLocalItem(item);
-        renderSongs();
-        showToast("🎵 Song saved!");
-        document.getElementById("tabSongs").click();
+
+        btnSaveSong.disabled = true;
+        showLoader();
+
+        try {
+            const title = btnSaveSong.dataset.title.replace(/ - YouTube$/, "");
+            const channel = btnSaveSong.dataset.channel;
+
+            // POST to backend API
+            const saved = await postSong(title, channel, videoId);
+
+            apiSongs.unshift({
+                id: saved.id,
+                title: title,
+                channel: channel,
+                videoId: videoId,
+                description: saved.description,
+                thumbnail: ytThumbnail(videoId),
+                url: btnSaveSong.dataset.url
+            });
+
+            renderSongs();
+            updateCount();
+            showToast("🎵 Song saved via AI!");
+            document.getElementById("tabSongs").click();
+        } catch (e) {
+            console.error(e);
+            showToast("❌ Failed to save song to backend");
+        } finally {
+            hideLoader();
+            btnSaveSong.disabled = false;
+        }
     });
 
     // ---- Save current page (local) ----
@@ -487,15 +526,22 @@ function renderPhotos() {
 }
 
 function renderSongs() {
-    const songs = localItems.filter(i => i.type === "song");
+    const localSongs = localItems.filter(i => i.type === "song");
+    const allSongs = [...apiSongs, ...localSongs];
+
     Array.from(songsList.children).forEach(c => { if (c !== songsEmpty) c.remove(); });
-    songsEmpty.style.display = songs.length === 0 ? "" : "none";
-    songs.forEach(item => {
+    songsEmpty.style.display = allSongs.length === 0 ? "" : "none";
+
+    allSongs.forEach(item => {
+        const isApi = !!item.description;
         const card = document.createElement("div");
-        card.className = "song-card";
+        card.className = "song-card" + (isApi ? " api-song" : "");
+
+        const thumb = item.thumbnail || ytThumbnail(item.videoId);
+
         card.innerHTML = `
       <div class="song-thumb-wrap">
-        <img class="song-thumb" src="${esc(item.thumbnail)}" alt="${esc(item.title)}"
+        <img class="song-thumb" src="${esc(thumb)}" alt="${esc(item.title)}"
              onerror="this.style.background='#1a2235'" />
         <div class="song-play-overlay">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="white" stroke="none">
@@ -506,17 +552,34 @@ function renderSongs() {
       <div class="song-info">
         <span class="song-title" title="${esc(item.title)}">${esc(item.title)}</span>
         <span class="song-channel">${esc(item.channel || "")}</span>
-        <span class="song-date">${formatDate(item.date)}</span>
+        ${isApi ? `<p class="song-desc">${esc(item.description)}</p>` : ""}
+        ${item.date ? `<span class="song-date">${formatDate(item.date)}</span>` : ""}
       </div>
       <button class="btn-delete" title="Remove">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
           <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
       </button>`;
-        card.querySelector(".btn-delete").addEventListener("click", e => {
-            e.stopPropagation(); removeLocalItem(item.id);
+
+        card.querySelector(".btn-delete").addEventListener("click", async e => {
+            e.stopPropagation();
+            if (isApi) {
+                try {
+                    await deleteApiItem("songs", item.id);
+                    apiSongs = apiSongs.filter(s => s.id !== item.id);
+                    renderSongs();
+                    updateCount();
+                    showToast("🗑️ Song deleted from world");
+                } catch (err) {
+                    showToast("❌ Failed to delete song");
+                }
+            } else {
+                removeLocalItem(item.id);
+            }
         });
-        card.addEventListener("click", () => chrome.tabs.create({ url: item.url }));
+
+        const url = item.url || `https://www.youtube.com/watch?v=${item.videoId}`;
+        card.addEventListener("click", () => chrome.tabs.create({ url }));
         songsList.appendChild(card);
     });
 }
